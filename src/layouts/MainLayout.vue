@@ -9,10 +9,11 @@
 
         <!-- --- User Links --- -->
         <div v-if="authStore.user" class="q-gutter-sm">
+          <!-- --- NEW COOKBOOK LINK --- -->
+          <q-btn flat dense to="/my-cookbook" label="My Cookbook" icon="book" />
           <q-btn flat dense to="/submit" label="Submit Recipe" />
           <q-btn flat dense to="/my-submissions" label="My Submissions" />
 
-          <!-- --- NEW ADMIN LINK --- -->
           <q-btn v-if="authStore.isAdmin" flat dense to="/admin" label="Admin" icon="admin_panel_settings"
             color="yellow" />
         </div>
@@ -49,7 +50,6 @@ import { useAuthStore } from 'stores/auth';
 const $q = useQuasar();
 const authStore = useAuthStore();
 
-// Get the Firebase services injected by our boot file
 const { proxy } = getCurrentInstance();
 const $firebaseAuth = proxy.$firebaseAuth;
 const $googleProvider = proxy.$googleProvider;

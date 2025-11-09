@@ -5,7 +5,8 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null, // Holds { uid, email, displayName, photoURL }
     token: null, // Holds the Firebase JWT token
-    isAdmin: false, // <-- NEW: To control admin UI
+    isAdmin: false,
+    favoriteRecipeIds: [], // <-- NEW: Holds an array of recipe IDs [1, 4, 12]
   }),
 
   actions: {
@@ -24,13 +25,25 @@ export const useAuthStore = defineStore('auth', {
         // User is logged out
         this.user = null;
         this.token = null;
-        this.isAdmin = false; // <-- NEW: Reset on logout
+        this.isAdmin = false;
+        this.favoriteRecipeIds = []; // <-- NEW: Clear on logout
       }
     },
-    // --- NEW ACTION ---
-    // This will be called by IndexPage.vue when the profile is fetched
     setAdminStatus(isAdmin) {
-      this.isAdmin = !!isAdmin; // Coerce to boolean
+      this.isAdmin = !!isAdmin;
+    },
+
+    // --- NEW ACTIONS for Favorites ---
+    setFavoriteIds(ids) {
+      this.favoriteRecipeIds = ids;
+    },
+    addFavoriteId(id) {
+      if (!this.favoriteRecipeIds.includes(id)) {
+        this.favoriteRecipeIds.push(id);
+      }
+    },
+    removeFavoriteId(id) {
+      this.favoriteRecipeIds = this.favoriteRecipeIds.filter(favId => favId !== id);
     },
   },
 

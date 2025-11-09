@@ -1,12 +1,27 @@
 <template>
   <q-page class="q-pa-md" style="max-width: 700px; margin: 0 auto">
-    <h4 class="text-h4 q-mt-none q-mb-md">Submit Your Recipe</h4>
+    <h4 class="text-h4 q-mt-none q-mb-md">
+      {{ isEditMode ? 'Edit Private Recipe' : 'Create Private Recipe' }}
+    </h4>
     <p class="text-body1 text-grey-8 q-mb-lg">
-      Share your craft with the Guild. Submissions will be reviewed by a Master
-      Foodwright. If approved, you'll earn a large XP reward!
+      This recipe will be saved to your private cookbook and will not be
+      submitted to the Guild.
     </p>
 
-    <q-form @submit="handleSubmit" class="q-gutter-md">
+    <div v-if="loading" class="text-center q-pa-xl">
+      <q-spinner-dots color="primary" size="3em" />
+    </div>
+
+    <div v-if="error" class="q-pa-md">
+      <q-banner rounded class="bg-red-1 text-red-8">
+        <template v-slot:avatar>
+          <q-icon name="error" />
+        </template>
+        <strong>Error:</strong> {{ error }}
+      </q-banner>
+    </div>
+
+    <q-form v-if="!loading && !error" @submit="handleSubmit" class="q-gutter-md">
       <!-- Section 1: Basic Info -->
       <q-card flat bordered>
         <q-card-section>
@@ -14,17 +29,14 @@
           <q-input v-model="form.title" label="Recipe Title *"
             :rules="[(val) => (val && val.length > 0) || 'Title is required']" lazy-rules outlined />
 
-          <q-input v-model="form.description" label="Description *" type="textarea" :rules="[
-            (val) => (val && val.length > 0) || 'Description is required',
-          ]" lazy-rules outlined autogrow class="q-mt-md" />
+          <q-input v-model="form.description" label="Description" type="textarea" outlined autogrow class="q-mt-md" />
 
-          <q-input v-model="form.tags" label="Tags (comma separated, e.g. baking, bread)"
-            hint="Enter a few tags to help categorize your recipe." outlined class="q-mt-md" />
+          <q-input v-model="form.tags" label="Tags (comma separated, e.g. personal, quick)"
+            hint="Enter tags to help you categorize." outlined class="q-mt-md" />
 
-          <q-input v-model.number="form.xp" label="Suggested XP *" type="number" :rules="[
-            (val) => (val && val > 0) || 'Suggest a fair XP value',
-            (val) => val <= 100 || 'Max suggested XP is 100',
-          ]" lazy-rules outlined class="q-mt-md" hint="How much XP should this be worth? (10-100)" />
+          <!-- XP is not relevant for private recipes -->
+          <q-input v-model.number="form.xp" type="number" label="XP" outlined class="q-mt-md" readonly disable
+            hint="XP is not applicable for private recipes." />
         </q-card-section>
       </q-card>
 
@@ -70,30 +82,37 @@
       </q-card>
 
       <!-- Submit Button -->
-      <q-btn label="Submit for Review" type="submit" color="primary" size="lg" class="full-width q-mt-md"
-        :loading="isSubmitting" />
+      <q-btn :label="isEditMode ? 'Save Changes' : 'Save to Cookbook'" type="submit" color="primary" size="lg"
+        class="full-width q-mt-md" :loading="isSubmitting" />
     </q-form>
   </q-page>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, onMounted, computed } from 'vue';
 import { useAuthStore } from 'stores/auth';
 import { useQuasar } from 'quasar';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
 const authStore = useAuthStore();
 const $q = useQuasar();
 const router = useRouter();
+const route = useRoute();
 
 const isSubmitting = ref(false);
+const loading = ref(false);
+const error = ref(null);
+const recipeId = ref(route.params.id || null);
+
+const isEditMode = computed(() => !!recipeId.value);
+
 const form = reactive({
   title: '',
   description: '',
   tags: '',
-  xp: 10,
-  ingredients: [{ quantity: '', name: '' }], // Start with one empty
-  instructions: [{ step: '' }], // Start with one empty
+  xp: 0, // Not used for private
+  ingredients: [],
+  instructions: [],
 });
 
 // --- Ingredients Functions ---
@@ -132,50 +151,87 @@ const fetchWithAuth = async (endpoint, options = {}) => {
 };
 // --- End API Helper ---
 
+const fetchRecipeForEdit = async () => {
+  if (!isEditMode.value) return;
+  loading.value = true;
+  error.value = null;
+  try {
+    const recipe = await fetchWithAuth(`/recipes/${recipeId.value}`);
+    // Security check: Make sure this user owns this recipe
+    if (recipe.submitted_by_user_id.String !== authStore.user.uid) {
+      throw new Error("You do not have permission to edit this recipe.");
+    }
+    // Load data into the form
+    form.title = recipe.title;
+    form.description = recipe.description;
+    form.tags = (recipe.tags || []).join(', ');
+    form.xp = recipe.xp;
+    form.ingredients = recipe.ingredients || [];
+    form.instructions = recipe.instructions || [];
+  } catch (err) {
+    console.error('Failed to fetch recipe for edit:', err);
+    error.value = err.message;
+  } finally {
+    loading.value = false;
+  }
+};
+
 const handleSubmit = async () => {
   isSubmitting.value = true;
   try {
-    // Convert tags string to an array
     const tagsArray = form.tags
       .split(',')
       .map((tag) => tag.trim().toLowerCase())
       .filter((tag) => tag.length > 0);
 
-    // Filter out empty ingredients/instructions
-    const cleanIngredients = form.ingredients.filter(i => i.name.trim() !== '');
-    const cleanInstructions = form.instructions.filter(i => i.step.trim() !== '');
+    const cleanIngredients = form.ingredients.filter(i => i.name && i.name.trim() !== '');
+    const cleanInstructions = form.instructions.filter(i => i.step && i.step.trim() !== '');
 
-    const newRecipe = {
+    const payload = {
       title: form.title,
       description: form.description,
-      xp: form.xp,
       tags: tagsArray,
       ingredients: cleanIngredients,
       instructions: cleanInstructions,
     };
 
-    await fetchWithAuth('/recipes', {
-      method: 'POST',
-      body: JSON.stringify(newRecipe),
-    });
+    if (isEditMode.value) {
+      // --- UPDATE (PUT) ---
+      await fetchWithAuth(`/recipes/private/${recipeId.value}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      $q.notify({
+        color: 'positive',
+        message: 'Recipe updated!',
+      });
+    } else {
+      // --- CREATE (POST) ---
+      await fetchWithAuth('/recipes/private', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      $q.notify({
+        color: 'positive',
+        message: 'Recipe saved to your private cookbook!',
+      });
+    }
 
-    $q.notify({
-      color: 'positive',
-      icon: 'check_circle',
-      message: 'Recipe submitted for review!',
-      timeout: 3000,
-    });
+    router.push('/my-cookbook?tab=private');
 
-    // Push user to their "My Submissions" page after success
-    router.push('/my-submissions');
   } catch (err) {
-    console.error('Failed to submit recipe:', err);
+    console.error('Failed to save recipe:', err);
     $q.notify({
       color: 'negative',
-      message: `Submission failed: ${err.message}`,
+      message: `Failed to save: ${err.message}`,
     });
   } finally {
     isSubmitting.value = false;
   }
 };
+
+onMounted(() => {
+  fetchRecipeForEdit();
+});
+
 </script>

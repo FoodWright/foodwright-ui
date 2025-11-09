@@ -30,22 +30,54 @@
         <q-card>
           <q-card-section>
             <p><strong>Description:</strong> {{ recipe.description }}</p>
+
+            <!-- === NEW: Show Ingredients === -->
+            <div class="q-mb-md">
+              <div class="text-weight-bold q-mb-xs">Ingredients:</div>
+              <q-list dense bordered padding class="rounded-borders">
+                <q-item v-if="!recipe.ingredients || recipe.ingredients.length === 0">
+                  <q-item-section class="text-grey-7">No ingredients submitted.</q-item-section>
+                </q-item>
+                <q-item v-for="(item, index) in recipe.ingredients" :key="index">
+                  <q-item-section>
+                    <q-item-label>
+                      <strong v-if="item.quantity">{{ item.quantity }}</strong>
+                      {{ item.name }}
+                    </q-item-label>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </div>
+
+            <!-- === NEW: Show Instructions === -->
+            <div class="q-mb-md">
+              <div class="text-weight-bold q-mb-xs">Instructions:</div>
+              <q-list dense bordered padding class="rounded-borders">
+                <q-item v-if="!recipe.instructions || recipe.instructions.length === 0">
+                  <q-item-section class="text-grey-7">No instructions submitted.</q-item-section>
+                </q-item>
+                <q-item v-for="(item, index) in recipe.instructions" :key="index">
+                  <q-item-section avatar class="text-weight-bold">{{ index + 1 }}.</q-item-section>
+                  <q-item-section>{{ item.step }}</q-item-section>
+                </q-item>
+              </q-list>
+            </div>
+
+            <!-- Tags -->
             <div class="q-gutter-xs">
               <strong>Tags:</strong>
-
               <template v-if="recipe.tags && recipe.tags.length > 0">
                 <q-chip v-for="tag in recipe.tags" :key="tag" size="sm" :label="tag" />
               </template>
               <q-chip v-else size="sm" outline label="No tags" />
-
             </div>
+
             <p class="q-mt-md text-grey-7 text-caption">
-              <!-- === THIS IS THE FIX === -->
-              <!-- We now display the username, with fallbacks -->
               (ID: {{ recipe.id }}, Submitted by:
               {{ recipe.submitted_by_username.String || recipe.submitted_by_user_id.String || 'Unknown' }})
             </p>
           </q-card-section>
+
           <q-card-actions align="right" class="q-gutter-sm q-pa-md">
             <q-btn label="Reject" color="negative" @click="handleAction(recipe.id, 'reject')"
               :loading="actionLoading[recipe.id]" />

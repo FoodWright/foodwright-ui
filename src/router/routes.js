@@ -1,4 +1,3 @@
-// --- NEW: Import the auth store ---
 import { useAuthStore } from 'stores/auth';
 
 const routes = [
@@ -19,11 +18,29 @@ const routes = [
         path: '/my-submissions',
         component: () => import('pages/MySubmissionsPage.vue'),
       },
-      // --- NEW ADMIN ROUTE (Correctly nested as a child) ---
+      {
+        path: '/my-cookbook',
+        component: () => import('pages/MyCookbookPage.vue'),
+        // Read tab from query param
+        props: (route) => ({ tab: route.query.tab || 'favorites' }),
+      },
+      // --- NEW PRIVATE RECIPE ROUTES ---
+      {
+        path: '/my-cookbook/private/new',
+        component: () => import('pages/EditRecipePage.vue'),
+      },
+      {
+        path: '/my-cookbook/private/edit/:id',
+        component: () => import('pages/EditRecipePage.vue'),
+      },
+      // ---
+      {
+        path: '/user/:id',
+        component: () => import('pages/UserProfilePage.vue'),
+      },
       {
         path: '/admin',
         component: () => import('pages/AdminPage.vue'),
-        // --- This is the Navigation Guard ---
         beforeEnter: (to, from, next) => {
           const authStore = useAuthStore();
           if (authStore.isAdmin) {
@@ -36,8 +53,7 @@ const routes = [
     ],
   },
 
-  // Always leave this as last one,
-  // but you can also remove it
+  // Always leave this as last one
   {
     path: '/:catchAll(.*)*',
     component: () => import('pages/ErrorNotFound.vue'),

@@ -24,51 +24,74 @@
           <q-card flat bordered class="full-height">
             <q-card-section>
               <div class="row items-start justify-between no-wrap">
-                <h4 class="text-h4 q-mt-none q-mb-sm">{{ recipe.title }}</h4>
-                <q-chip color="accent" text-color="white" :label="recipe.xp + ' XP'" size="lg" class="q-ml-md" />
+                <h4 class="text-h4 q-mt-none q-mb-sm q-pr-lg">
+                  {{ recipe.title }}
+                </h4>
+
+                <!-- === Favorite Button === -->
+                <q-btn v-if="authStore.user" flat round :color="isFavorited ? 'primary' : 'grey'" :icon="isFavorited ? 'bookmark' : 'bookmark_border'
+                  " @click.prevent="toggleFavorite" class="q-ml-md">
+                  <q-tooltip>{{ isFavorited ? 'Remove from Cookbook' : 'Add to Cookbook' }}</q-tooltip>
+                </q-btn>
               </div>
               <p class="text-body1 text-grey-8">{{ recipe.description }}</p>
+
+              <!-- Submitted By -->
+              <div v-if="recipe.submitted_by_username.Valid" class="q-mt-sm text-caption text-grey-7">
+                Submitted by:
+                <router-link :to="`/user/${recipe.submitted_by_user_id.String}`" class="user-link">
+                  {{ recipe.submitted_by_username.String }}
+                </router-link>
+              </div>
+
               <div class="q-mt-md q-gutter-xs">
                 <q-chip v-for="tag in recipe.tags" :key="tag" outline color="grey-7" :label="tag" />
               </div>
             </q-card-section>
             <q-separator />
+
+            <!-- Ingredients List -->
             <q-card-section>
               <div class="text-h6 q-mb-sm">Ingredients</div>
-              <!-- Placeholder for ingredients -->
-              <q-list dense>
-                <q-item>
+              <div v-if="!recipe.ingredients || recipe.ingredients.length === 0" class="text-grey-7">
+                No ingredients listed.
+              </div>
+              <q-list v-else dense>
+                <q-item v-for="(item, index) in recipe.ingredients" :key="index">
                   <q-item-section avatar>
                     <q-icon color="primary" name="check_circle_outline" />
                   </q-item-section>
-                  <q-item-section>Ingredient 1</q-item-section>
-                </q-item>
-                <q-item>
-                  <q-item-section avatar>
-                    <q-icon color="primary" name="check_circle_outline" />
+                  <q-item-section>
+                    <q-item-label>
+                      <strong v-if="item.quantity">{{ item.quantity }}</strong>
+                      {{ item.name }}
+                    </q-item-label>
                   </q-item-section>
-                  <q-item-section>Ingredient 2</q-item-section>
-                </q-item>
-                <q-item>
-                  <q-item-section avatar>
-                    <q-icon color="primary" name="check_circle_outline" />
-                  </q-item-section>
-                  <q-item-section>Ingredient 3</q-item-section>
                 </q-item>
               </q-list>
             </q-card-section>
             <q-separator />
+
+            <!-- Instructions List -->
             <q-card-section>
-              <div class="text-h6 q-mb-sm">Method</div>
-              <!-- Placeholder for method -->
-              <p>
-                1. This is step one for the recipe. Lorem ipsum dolor sit amet,
-                consectetur adipiscing elit.
-              </p>
-              <p>
-                2. This is step two. Duis aute irure dolor in reprehenderit in
-                voluptate velit esse cillum dolore eu fugiat nulla pariatur.
-              </p>
+              <div class="text-h6 q-mb-sm">Instructions</div>
+              <div v-if="!recipe.instructions || recipe.instructions.length === 0" class="text-grey-7">
+                No instructions provided.
+              </div>
+              <q-list v-else class="instruction-list">
+                <q-item v-for="(item, index) in recipe.instructions" :key="index" class="q-mb-sm">
+                  <q-item-section avatar>
+                    <q-avatar color="primary" text-color="white" size="md">
+                      {{ index + 1 }}
+                    </q-avatar>
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label class="text-body1">{{
+                      item.step
+                      }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </q-list>
             </q-card-section>
           </q-card>
         </div>
@@ -78,7 +101,10 @@
           <!-- "I Made This!" Button Card -->
           <q-card flat bordered class="q-mb-md">
             <q-card-section class="text-center">
-              <div class="text-h6 q-mb-sm">Have you cooked this?</div>
+              <div class="row items-center justify-between no-wrap">
+                <div class="text-h6 q-mb-sm">Have you cooked this?</div>
+                <q-chip color="accent" text-color="white" :label="recipe.xp + ' XP'" size="md" class="q-ml-md" />
+              </div>
               <p class="text-grey-8">
                 Log your cook to earn XP, unlock badges, and help the guild!
               </p>
@@ -110,12 +136,13 @@
             <q-item v-for="log in cookLogs" :key="log.id" class="q-py-md">
               <q-item-section>
                 <q-item-label class="text-weight-bold">
-                  {{ log.username }}
-                  <!-- Show star rating if it exists -->
+                  <router-link :to="`/user/${log.user_id}`" class="user-link">
+                    {{ log.username }}
+                  </router-link>
+
                   <q-rating v-if="log.rating" :model-value="log.rating" color="orange" icon="star" size="xs" readonly
                     class="q-ml-sm" />
                 </q-item-label>
-                <!-- Show notes if they exist -->
                 <q-item-label v-if="log.notes" class="q-mt-sm">
                   {{ log.notes }}
                 </q-item-label>
@@ -156,7 +183,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from 'stores/auth';
 import { useQuasar } from 'quasar';
@@ -167,7 +194,7 @@ const $q = useQuasar();
 
 // --- API Config ---
 const API_URL = 'http://localhost:8080/api';
-const recipeId = route.params.id;
+const recipeId = parseInt(route.params.id, 10);
 
 // --- Page State Refs ---
 const recipe = ref(null);
@@ -193,21 +220,17 @@ const fetchWithAuth = async (endpoint, options = {}) => {
     'Content-Type': 'application/json',
     ...options.headers,
   };
-
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-
   const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
     throw new Error(
       errData.message || `Server responded with ${response.status}`
     );
   }
-  // Handle 204 No Content (for POST requests)
-  if (response.status === 204) return null;
+  if (response.status === 204 || response.headers.get('content-length') === '0') return null;
   return response.json();
 };
 
@@ -249,7 +272,6 @@ const openLogDialog = () => {
     });
     return;
   }
-  // Reset form
   logForm.notes = '';
   logForm.rating = 0;
   showLogDialog.value = true;
@@ -257,24 +279,19 @@ const openLogDialog = () => {
 
 const handleLogSubmit = async () => {
   isSubmitting.value = true;
-
   try {
     const response = await fetchWithAuth(`/recipes/${recipeId}/log`, {
       method: 'POST',
       body: JSON.stringify({
         notes: logForm.notes,
-        // Send `null` if rating is 0, otherwise send the number
         rating: logForm.rating > 0 ? logForm.rating : null,
       }),
     });
-
-    // --- Show Success Notifications ---
     $q.notify({
       color: 'positive',
       icon: 'check_circle',
       message: `Cook logged! +${response.xp_granted} XP`,
     });
-
     if (response.rank_up) {
       $q.notify({
         color: 'primary',
@@ -283,7 +300,6 @@ const handleLogSubmit = async () => {
         timeout: 4000,
       });
     }
-
     if (response.new_badges_awarded && response.new_badges_awarded.length > 0) {
       response.new_badges_awarded.forEach((badge) => {
         $q.notify({
@@ -294,10 +310,8 @@ const handleLogSubmit = async () => {
         });
       });
     }
-
-    // Close dialog and refresh logs
     showLogDialog.value = false;
-    await fetchCookLogs(); // Refresh the log list
+    await fetchCookLogs();
   } catch (err) {
     console.error('Failed to log cook:', err);
     $q.notify({
@@ -313,17 +327,72 @@ const handleLogSubmit = async () => {
 const formatTimeAgo = (isoString) => {
   const date = new Date(isoString);
   const seconds = Math.floor((new Date() - date) / 1000);
-  let interval = seconds / 31536000; // years
+  let interval = seconds / 31536000;
   if (interval > 1) return Math.floor(interval) + " years ago";
-  interval = seconds / 2592000; // months
+  interval = seconds / 2592000;
   if (interval > 1) return Math.floor(interval) + " months ago";
-  interval = seconds / 86400; // days
+  interval = seconds / 86400;
   if (interval > 1) return Math.floor(interval) + " days ago";
-  interval = seconds / 3600; // hours
+  interval = seconds / 3600;
   if (interval > 1) return Math.floor(interval) + " hours ago";
-  interval = seconds / 60; // minutes
+  interval = seconds / 60;
   if (interval > 1) return Math.floor(interval) + " minutes ago";
   return Math.floor(seconds) + " seconds ago";
+};
+
+// --- NEW: Favorite Functions ---
+
+// ===== THIS IS THE FIX =====
+const isFavorited = computed(() => {
+  // Check if authStore.favoriteRecipeIds is an array before calling .includes()
+  return (
+    Array.isArray(authStore.favoriteRecipeIds) &&
+    authStore.favoriteRecipeIds.includes(recipeId)
+  );
+});
+// ===========================
+
+const toggleFavorite = async () => {
+  if (!authStore.user) {
+    $q.notify({
+      color: 'negative',
+      message: 'You must be logged in to save recipes.',
+    });
+    return;
+  }
+
+  const alreadyFavorited = isFavorited.value;
+  try {
+    if (alreadyFavorited) {
+      authStore.removeFavoriteId(recipeId);
+      await fetchWithAuth(`/recipes/${recipeId}/favorite`, { method: 'DELETE' });
+      $q.notify({
+        color: 'primary',
+        message: 'Removed from cookbook',
+        icon: 'bookmark_remove'
+      });
+    } else {
+      authStore.addFavoriteId(recipeId);
+      await fetchWithAuth(`/recipes/${recipeId}/favorite`, { method: 'POST' });
+      $q.notify({
+        color: 'positive',
+        message: 'Added to cookbook!',
+        icon: 'bookmark_add'
+      });
+    }
+  } catch (err) {
+    console.error('Failed to toggle favorite:', err);
+    $q.notify({
+      color: 'negative',
+      message: `Failed to update cookbook: ${err.message}`,
+    });
+    // Rollback optimistic update
+    if (alreadyFavorited) {
+      authStore.addFavoriteId(recipeId);
+    } else {
+      authStore.removeFavoriteId(recipeId);
+    }
+  }
 };
 
 // --- Lifecycle Hook ---
@@ -337,5 +406,25 @@ onMounted(() => {
 .text-h4 {
   font-weight: 600;
   line-height: 1.2;
+}
+
+.instruction-list .q-item {
+  align-items: flex-start;
+}
+
+.instruction-list .q-item__section--avatar {
+  min-width: 0;
+  margin-right: 16px;
+  padding-top: 4px;
+}
+
+.user-link {
+  color: var(--q-primary);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.user-link:hover {
+  text-decoration: underline;
 }
 </style>
