@@ -20,7 +20,7 @@
                 Your Rank:
                 <span class="text-weight-bold text-primary">{{
                   guildProfile.rank
-                }}</span>
+                  }}</span>
               </div>
             </div>
 
@@ -165,7 +165,8 @@ const authStore = useAuthStore();
 const $q = useQuasar();
 const router = useRouter();
 
-const API_URL = 'http://localhost:8080/api';
+// const API_URL = 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
 
 const recipes = ref([]);
 const loading = ref(false);
