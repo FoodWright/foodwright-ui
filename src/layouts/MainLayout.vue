@@ -3,33 +3,36 @@
     <q-header elevated class="bg-primary text-white">
       <q-toolbar>
         <q-toolbar-title>
-          <!-- Make title a link to home -->
           <q-btn flat dense no-caps to="/" class="text-h6">Foodwright Guild</q-btn>
         </q-toolbar-title>
 
         <!-- --- User Links --- -->
         <div v-if="authStore.user" class="q-gutter-sm">
-          <!-- --- NEW COOKBOOK LINK --- -->
           <q-btn flat dense to="/my-cookbook" label="My Cookbook" icon="book" />
           <q-btn flat dense to="/submit" label="Submit Recipe" />
           <q-btn flat dense to="/my-submissions" label="My Submissions" />
 
-          <q-btn v-if="authStore.isAdmin" flat dense to="/admin" label="Admin" icon="admin_panel_settings"
+          <q-btn v-if="authStore.isAdmin" flat dense to="/admin" label="Guild Admin" icon="admin_panel_settings"
             color="yellow" />
+
+          <q-btn v-if="authStore.isSiteAdmin" flat dense to="/site-admin" label="Site Admin" icon="construction"
+            color="red" />
         </div>
 
-        <!-- Spacer -->
         <q-space />
 
-        <!-- Show Login button if user is not logged in -->
+        <!-- === FIX: Corrected v-if and removed duplicate === -->
         <q-btn v-if="!authStore.user" flat @click="login" label="Login with Google" />
 
-        <!-- Show user info and Logout button if logged in -->
         <div v-if="authStore.user" class="row items-center q-gutter-md">
-          <q-avatar size="32px">
-            <img :src="authStore.user.photoURL" alt="User avatar" />
-          </q-avatar>
-          <div class="gt-xs">{{ authStore.user.displayName }}</div>
+          <q-btn flat dense no-caps :to="`/user/${authStore.user.uid}`" class="row items-center no-wrap">
+            <q-avatar size="32px" class="q-mr-sm">
+              <img :src="authStore.user.photoURL" alt="User avatar" />
+            </q-avatar>
+            <div class="gt-xs">{{ authStore.user.displayName }}</div>
+            <q-tooltip>My Profile</q-tooltip>
+          </q-btn>
+
           <q-btn flat @click="logout" label="Logout" />
         </div>
       </q-toolbar>
@@ -87,7 +90,6 @@ const logout = async () => {
 </script>
 
 <style>
-/* ... existing styles ... */
 body,
 .q-layout,
 .q-toolbar__title,

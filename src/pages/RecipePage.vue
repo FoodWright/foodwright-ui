@@ -22,9 +22,7 @@
         <!-- Main Recipe Details -->
         <div class="col-12 col-md-7">
           <q-card flat bordered class="full-height">
-            <!-- === NEW: Display Image === -->
             <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
-            <!-- === -->
 
             <q-card-section>
               <div class="row items-start justify-between no-wrap">
@@ -105,7 +103,7 @@
             <q-card-section class="text-center">
               <div class="row items-center justify-between no-wrap">
                 <div class="text-h6 q-mb-sm">Have you cooked this?</div>
-                <q-chip color="accent" text-color="white" :label="recipe.xp + ' XP'" size="md" class="q-ml-md" />
+                <q-chip color="accent" text-color="white" :label="recipe.xp + ' XP'" size="md" class="q-ml-sm" />
               </div>
               <p class="text-grey-8">
                 Log your cook to earn XP, unlock badges, and help the guild!
@@ -448,6 +446,7 @@ const toggleFavorite = async () => {
     return;
   }
 
+  // --- FIX: Typo alrdyFavorited -> alreadyFavorited ---
   const alreadyFavorited = isFavorited.value;
   try {
     if (alreadyFavorited) {

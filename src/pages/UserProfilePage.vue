@@ -22,7 +22,6 @@
       <div class="col-12 col-md-4">
         <q-card class="bg-grey-2" flat>
           <q-card-section class="text-center">
-            <!-- We don't have public avatars yet, so we use a placeholder icon -->
             <q-avatar size="80px" class="q-mb-md" icon="person" color="primary" text-color="white" />
             <div class="text-h6">{{ profile.username }}</div>
             <div class-="text-subtitle1 text-grey-8">
@@ -50,6 +49,8 @@
                   <q-item-label class="text-weight-bold">{{ profile.xp }}</q-item-label>
                 </q-item-section>
               </q-item>
+
+              <!-- === MODIFIED: Badges Section === -->
               <q-item>
                 <q-item-section avatar>
                   <q-icon name="military_tech" />
@@ -57,14 +58,37 @@
                 <q-item-section>
                   <q-item-label overline>Badges</q-item-label>
                   <q-item-label v-if="profile.badges && profile.badges.length">
-                    <q-chip v-for="badge in profile.badges" :key="badge" color="secondary" text-color="white" size="sm"
-                      :label="badge" />
+                    <q-chip v-for="badge in profile.badges" :key="badge.id" color="secondary" text-color="white"
+                      size="sm" :label="badge.name" class="q-ma-xs">
+                      <!-- === FIX: Use the working pattern from SiteAdminPage === -->
+                      <template v-slot:prepend>
+                        <q-avatar v-if="badge.icon_url.Valid">
+                          <!-- Case 1: Icon is a URL -->
+                          <q-img :src="badge.icon_url.String" v-if="badge.icon_url.String.startsWith('http')" />
+                          <!-- Case 2: Icon is a FontAwesome name -->
+                          <q-icon :name="badge.icon_url.String" v-else />
+                        </q-avatar>
+                        <!-- Case 3: No Icon (fallback) -->
+                        <q-avatar v-else icon="military_tech" color="transparent" text-color="white" />
+                      </template>
+                      <!-- === END FIX === -->
+
+                      <q-tooltip class="bg-black text-body2" :offset="[10, 10]">
+                        <div class="text-weight-bold">{{ badge.name }}</div>
+                        <div>{{ badge.description }}</div>
+                        <div class="text-caption q-mt-sm">
+                          Earned: {{ formatJoinDate(badge.earned_at.Time) }}
+                        </div>
+                      </q-tooltip>
+                    </q-chip>
                   </q-item-label>
                   <q-item-label v-else class="text-caption text-grey-7">
                     No badges earned yet.
                   </q-item-label>
                 </q-item-section>
               </q-item>
+              <!-- === END MODIFICATION === -->
+
             </q-list>
           </q-card-section>
         </q-card>
@@ -123,10 +147,8 @@
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
-// import { useQuasar } from 'quasar';
 
 const route = useRoute();
-// const $q = useQuasar();
 
 const API_URL = 'http://localhost:8080/api';
 const userId = ref(route.params.id);
@@ -136,7 +158,6 @@ const logs = ref([]);
 const loading = reactive({ profile: false, logs: false });
 const error = reactive({ profile: null, logs: null });
 
-// --- API Fetch Function (Public, no auth needed) ---
 const fetchPublic = async (endpoint) => {
   const response = await fetch(`${API_URL}${endpoint}`);
   if (!response.ok) {
@@ -148,11 +169,10 @@ const fetchPublic = async (endpoint) => {
   return response.json();
 };
 
-// --- API Call Functions ---
 const fetchProfile = async (id) => {
   loading.profile = true;
   error.profile = null;
-  profile.value = null; // Clear old profile
+  profile.value = null;
   try {
     const data = await fetchPublic(`/profile/${id}`);
     profile.value = data;
@@ -167,10 +187,10 @@ const fetchProfile = async (id) => {
 const fetchLogs = async (id) => {
   loading.logs = true;
   error.logs = null;
-  logs.value = []; // Clear old logs
+  logs.value = [];
   try {
     const data = await fetchPublic(`/profile/${id}/logs`);
-    logs.value = data;
+    logs.value = data || [];
   } catch (err) {
     error.logs = err.message;
     console.error(err);
@@ -179,37 +199,36 @@ const fetchLogs = async (id) => {
   }
 };
 
-// --- Formatters ---
 const formatJoinDate = (isoString) => {
+  if (!isoString) return '';
   return new Date(isoString).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'long',
+    day: 'numeric',
   });
 };
 
 const formatTimeAgo = (isoString) => {
   const date = new Date(isoString);
   const seconds = Math.floor((new Date() - date) / 1000);
-  let interval = seconds / 31536000; // years
+  let interval = seconds / 31536000;
   if (interval > 1) return Math.floor(interval) + " years ago";
-  interval = seconds / 2592000; // months
+  interval = seconds / 2592000;
   if (interval > 1) return Math.floor(interval) + " months ago";
-  interval = seconds / 86400; // days
+  interval = seconds / 86400;
   if (interval > 1) return Math.floor(interval) + " days ago";
-  interval = seconds / 3600; // hours
+  interval = seconds / 3600;
   if (interval > 1) return Math.floor(interval) + " hours ago";
-  interval = seconds / 60; // minutes
+  interval = seconds / 60;
   if (interval > 1) return Math.floor(interval) + " minutes ago";
   return Math.floor(seconds) + " seconds ago";
 };
 
-// --- Lifecycle & Watcher ---
 onMounted(() => {
   fetchProfile(userId.value);
   fetchLogs(userId.value);
 });
 
-// Watch for route changes (e.g., clicking from one user profile to another)
 watch(
   () => route.params.id,
   (newId) => {

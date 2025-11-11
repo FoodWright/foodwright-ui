@@ -2,7 +2,7 @@
   <q-page class="q-pa-md">
     <!-- Main content area, centered -->
     <div style="max-width: 900px; margin: 0 auto">
-      <!-- === NEW: Guild Card === -->
+      <!-- === Guild Card === -->
       <q-card v-if="authStore.user && guildProfile" class="q-mb-md" flat bordered>
         <q-card-section>
           <div class="row items-center q-gutter-md">
@@ -20,7 +20,7 @@
                 Your Rank:
                 <span class="text-weight-bold text-primary">{{
                   guildProfile.rank
-                  }}</span>
+                }}</span>
               </div>
             </div>
 
@@ -34,12 +34,34 @@
             </div>
           </div>
 
-          <!-- Badges -->
+          <!-- === MODIFIED: Badges Section === -->
           <div v-if="guildProfile.badges && guildProfile.badges.length" class="q-mt-md">
             <div class="text-overline text-grey-7">Your Badges</div>
-            <q-chip v-for="badge in guildProfile.badges" :key="badge" color="secondary" text-color="white" size="md"
-              :label="badge" class="q-mr-sm" />
+            <q-chip v-for="badge in guildProfile.badges" :key="badge.id" color="secondary" text-color="white" size="md"
+              :label="badge.name" class="q-mr-sm">
+              <!-- === FIX: Use the working pattern from SiteAdminPage === -->
+              <template v-slot:prepend>
+                <q-avatar v-if="badge.icon_url.Valid">
+                  <!-- Case 1: Icon is a URL -->
+                  <q-img :src="badge.icon_url.String" v-if="badge.icon_url.String.startsWith('http')" />
+                  <!-- Case 2: Icon is a FontAwesome name -->
+                  <q-icon :name="badge.icon_url.String" v-else />
+                </q-avatar>
+                <!-- Case 3: No Icon (fallback) -->
+                <q-avatar v-else icon="military_tech" color="transparent" text-color="white" />
+              </template>
+              <!-- === END FIX === -->
+
+              <q-tooltip class="bg-black text-body2" :offset="[10, 10]">
+                <div class="text-weight-bold">{{ badge.name }}</div>
+                <div>{{ badge.description }}</div>
+                <div class="text-caption q-mt-sm">
+                  Earned: {{ formatJoinDate(badge.earned_at.Time) }}
+                </div>
+              </q-tooltip>
+            </q-chip>
           </div>
+          <!-- === END MODIFICATION === -->
 
         </q-card-section>
       </q-card>
@@ -156,7 +178,7 @@ const currentPage = ref(1);
 const totalPages = ref(1);
 
 const favoritesLoaded = ref(false);
-const guildProfile = ref(null); // <-- NEW: Store the user's profile
+const guildProfile = ref(null);
 
 const fetchWithAuth = async (endpoint, options = {}) => {
   const token = authStore.token;
@@ -223,8 +245,9 @@ const fetchProfileAndFavorites = async () => {
   if (!authStore.user) return;
   try {
     const profile = await fetchWithAuth('/profile');
-    guildProfile.value = profile; // <-- NEW: Save the profile
+    guildProfile.value = profile;
     authStore.setAdminStatus(profile.is_admin);
+    authStore.setSiteAdminStatus(profile.is_site_admin);
 
     const favoriteIds = await fetchWithAuth('/my-favorite-ids');
     authStore.setFavoriteIds(favoriteIds || []);
@@ -233,6 +256,15 @@ const fetchProfileAndFavorites = async () => {
     console.error('Failed to fetch profile/favorites:', err);
     error.value = err.message;
   }
+};
+
+const formatJoinDate = (isoString) => {
+  if (!isoString) return '';
+  return new Date(isoString).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 };
 
 const isFavorited = (recipeId) => {
@@ -305,9 +337,8 @@ watch(() => authStore.user, (newUser) => {
     console.log('User logged in, fetching profile & faves.');
     fetchProfileAndFavorites();
   } else {
-    // User logged out
     favoritesLoaded.value = false;
-    guildProfile.value = null; // <-- NEW: Clear profile on logout
+    guildProfile.value = null;
   }
 });
 

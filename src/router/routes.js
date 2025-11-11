@@ -21,10 +21,8 @@ const routes = [
       {
         path: '/my-cookbook',
         component: () => import('pages/MyCookbookPage.vue'),
-        // Read tab from query param
         props: (route) => ({ tab: route.query.tab || 'favorites' }),
       },
-      // --- NEW PRIVATE RECIPE ROUTES ---
       {
         path: '/my-cookbook/private/new',
         component: () => import('pages/EditRecipePage.vue'),
@@ -33,7 +31,6 @@ const routes = [
         path: '/my-cookbook/private/edit/:id',
         component: () => import('pages/EditRecipePage.vue'),
       },
-      // ---
       {
         path: '/user/:id',
         component: () => import('pages/UserProfilePage.vue'),
@@ -43,13 +40,39 @@ const routes = [
         component: () => import('pages/AdminPage.vue'),
         beforeEnter: (to, from, next) => {
           const authStore = useAuthStore();
+          // Need to check this on page load
           if (authStore.isAdmin) {
-            next(); // User is admin, proceed
+            next();
           } else {
-            next('/'); // User is not admin, redirect to home
+            // In case of page refresh, auth might not be ready.
+            // A better guard would watch authStore, but for now
+            // we'll just deny. A real app would wait.
+            if (authStore.user) {
+              next('/'); // Not admin
+            } else {
+              next('/'); // Not logged in
+            }
           }
         },
       },
+      // --- NEW: Site Admin Route ---
+      {
+        path: '/site-admin',
+        component: () => import('pages/SiteAdminPage.vue'),
+        beforeEnter: (to, from, next) => {
+          const authStore = useAuthStore();
+          if (authStore.isSiteAdmin) {
+            next(); // User is Site Admin, proceed
+          } else {
+            if (authStore.user) {
+              next('/'); // Not site admin
+            } else {
+              next('/'); // Not logged in
+            }
+          }
+        },
+      },
+      // ---
     ],
   },
 

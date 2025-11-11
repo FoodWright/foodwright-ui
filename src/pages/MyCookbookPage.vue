@@ -46,12 +46,10 @@
           <div v-for="recipe in favorites" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
             <q-card class="recipe-card full-height" flat bordered>
               <router-link :to="`/recipe/${recipe.id}`" class="recipe-link">
-                <!-- === NEW: Display Image === -->
                 <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
                 <q-card-section class="q-pa-sm q-pb-none" v-else>
                   <q-img :ratio="16 / 9" class="bg-grey-2" />
                 </q-card-section>
-                <!-- === -->
 
                 <q-card-section class="q-pt-sm">
                   <div class="row justify-between no-wrap">
@@ -99,12 +97,10 @@
           <div v-for="recipe in privateRecipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
             <q-card class="recipe-card full-height" flat bordered>
               <router-link :to="`/recipe/${recipe.id}`" class="recipe-link">
-                <!-- === NEW: Display Image === -->
                 <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
                 <q-card-section class="q-pa-sm q-pb-none" v-else>
                   <q-img :ratio="16 / 9" class="bg-grey-2" />
                 </q-card-section>
-                <!-- === -->
 
                 <q-card-section class="q-pt-sm">
                   <div class="text-h6 ellipsis">{{ recipe.title }}</div>
@@ -170,7 +166,6 @@ const fetchWithAuth = async (endpoint, options = {}) => {
   if (response.status === 200 && response.headers.get('content-length') === '0') {
     return null;
   }
-  // Handle 204 No Content
   if (response.status === 204) return null;
 
   return response.json();
@@ -195,6 +190,7 @@ const fetchMyCookbook = async () => {
 const toggleFavorite = async (recipeId) => {
   if (!authStore.user) return;
   try {
+    // This page only shows favorites, so we always remove
     favorites.value = favorites.value.filter((r) => r.id !== recipeId);
     authStore.removeFavoriteId(recipeId);
     await fetchWithAuth(`/recipes/${recipeId}/favorite`, { method: 'DELETE' });
@@ -209,6 +205,7 @@ const toggleFavorite = async (recipeId) => {
       color: 'negative',
       message: `Failed to remove favorite: ${err.message}`,
     });
+    // Add it back on failure
     fetchMyCookbook();
   }
 };
@@ -274,7 +271,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* FIX: This makes the private recipe card layout correctly */
 .recipe-card {
   display: flex;
   flex-direction: column;
@@ -287,7 +283,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   flex-grow: 1;
-  /* This is the key */
 }
 
 .recipe-link .q-card-section {
@@ -297,8 +292,6 @@ onMounted(() => {
 .recipe-card .q-card-actions {
   flex-shrink: 0;
 }
-
-/* End Fix */
 
 .recipe-card:hover {
   transform: translateY(-4px);
