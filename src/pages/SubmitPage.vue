@@ -18,6 +18,27 @@
             (val) => (val && val.length > 0) || 'Description is required',
           ]" lazy-rules outlined autogrow class="q-mt-md" />
 
+          <!-- === NEW: q-file component === -->
+          <div class="text-h6 q-mb-sm q-mt-md">Recipe Image</div>
+          <q-file v-model="imageFile" @update:model-value="handleFileUpload" @clear="handleRemoveImage"
+            label="Upload an image (Max 5MB)" accept="image/*" max-file-size="5242880" @rejected="handleUploadError"
+            outlined :loading="isUploading">
+            <template v-slot:prepend>
+              <q-icon name="image" />
+            </template>
+            <template v-slot:append>
+              <q-icon v-if="imageFile" name="cancel" @click.stop.prevent="handleRemoveImage" class="cursor-pointer" />
+            </template>
+          </q-file>
+
+          <!-- Image Preview -->
+          <q-img v-if="form.image_url" :src="form.image_url" ratio="1.9" class="rounded-borders q-mt-md">
+            <q-btn flat round color="white" icon="delete" class="absolute-top-right q-ma-xs" @click="handleRemoveImage">
+              <q-tooltip>Remove Image</q-tooltip>
+            </q-btn>
+          </q-img>
+          <!-- === -->
+
           <q-input v-model="form.tags" label="Tags (comma separated, e.g. baking, bread)"
             hint="Enter a few tags to help categorize your recipe." outlined class="q-mt-md" />
 
@@ -77,40 +98,51 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, getCurrentInstance } from 'vue';
 import { useAuthStore } from 'stores/auth';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
+import {
+  ref as storageRef,
+  uploadBytesResumable,
+  getDownloadURL,
+} from 'firebase/storage';
 
 const authStore = useAuthStore();
 const $q = useQuasar();
 const router = useRouter();
 
+const { proxy } = getCurrentInstance();
+const $firebaseStorage = proxy.$firebaseStorage;
+
 const isSubmitting = ref(false);
+const isUploading = ref(false); // <-- NEW for q-file
+const imageFile = ref(null); // <-- NEW for q-file
+
 const form = reactive({
   title: '',
   description: '',
   tags: '',
   xp: 10,
-  ingredients: [{ quantity: '', name: '' }], // Start with one empty
-  instructions: [{ step: '' }], // Start with one empty
+  ingredients: [{ quantity: '', name: '' }],
+  instructions: [{ step: '' }],
+  image_url: '',
 });
 
-// --- Ingredients Functions ---
+// ... (ingredients/instructions functions are unchanged) ...
 const addIngredient = () => {
   form.ingredients.push({ quantity: '', name: '' });
 };
 const removeIngredient = (index) => {
   form.ingredients.splice(index, 1);
 };
-
-// --- Instructions Functions ---
 const addInstruction = () => {
   form.instructions.push({ step: '' });
 };
 const removeInstruction = (index) => {
   form.instructions.splice(index, 1);
 };
+
 
 // --- API Fetch Helper ---
 const API_URL = 'http://localhost:8080/api';
@@ -132,18 +164,69 @@ const fetchWithAuth = async (endpoint, options = {}) => {
 };
 // --- End API Helper ---
 
+// --- NEW: Firebase Uploader Functions ---
+const handleFileUpload = (file) => {
+  if (!file) {
+    return;
+  }
+  if (!authStore.user) {
+    $q.notify({ color: 'negative', message: 'You must be logged in to upload images.' });
+    imageFile.value = null;
+    return;
+  }
+
+  isUploading.value = true;
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${authStore.user.uid}-${Date.now()}.${fileExt}`;
+  const sRef = storageRef($firebaseStorage, `recipe_images/${fileName}`);
+
+  const uploadTask = uploadBytesResumable(sRef, file);
+
+  uploadTask.on(
+    'state_changed',
+    () => { /* Handle progress */ },
+    (error) => {
+      console.error('Upload failed:', error);
+      $q.notify({ color: 'negative', message: 'Image upload failed.' });
+      isUploading.value = false;
+      imageFile.value = null;
+    },
+    async () => {
+      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      form.image_url = downloadURL; // <-- SET THE URL
+      $q.notify({ color: 'positive', message: 'Image uploaded!' });
+      isUploading.value = false;
+    }
+  );
+};
+
+const handleUploadError = () => {
+  $q.notify({ color: 'negative', message: 'Image upload failed. File may be too large or not an image.' });
+};
+
+const handleRemoveImage = () => {
+  form.image_url = '';
+  imageFile.value = null;
+  // We don't delete from storage, just clear the URL.
+  $q.notify({ color: 'info', message: 'Image selection cleared.' });
+};
+// --- End Uploader Functions ---
+
 const handleSubmit = async () => {
+  if (isUploading.value) {
+    $q.notify({ color: 'warning', message: 'Please wait for image to finish uploading.' });
+    return;
+  }
+
   isSubmitting.value = true;
   try {
-    // Convert tags string to an array
     const tagsArray = form.tags
       .split(',')
       .map((tag) => tag.trim().toLowerCase())
       .filter((tag) => tag.length > 0);
 
-    // Filter out empty ingredients/instructions
-    const cleanIngredients = form.ingredients.filter(i => i.name.trim() !== '');
-    const cleanInstructions = form.instructions.filter(i => i.step.trim() !== '');
+    const cleanIngredients = form.ingredients.filter(i => i.name && i.name.trim() !== '');
+    const cleanInstructions = form.instructions.filter(i => i.step && i.step.trim() !== '');
 
     const newRecipe = {
       title: form.title,
@@ -152,6 +235,7 @@ const handleSubmit = async () => {
       tags: tagsArray,
       ingredients: cleanIngredients,
       instructions: cleanInstructions,
+      image_url: form.image_url, // <-- NEW
     };
 
     await fetchWithAuth('/recipes', {
@@ -166,7 +250,6 @@ const handleSubmit = async () => {
       timeout: 3000,
     });
 
-    // Push user to their "My Submissions" page after success
     router.push('/my-submissions');
   } catch (err) {
     console.error('Failed to submit recipe:', err);

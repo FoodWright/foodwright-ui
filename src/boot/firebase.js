@@ -5,6 +5,8 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
 } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import { useAuthStore } from 'stores/auth'; // Assumes `stores` is aliased in jsconfig.json/quasar.config.js
 
 // !! IMPORTANT: Replace with your actual Firebase config
@@ -20,7 +22,18 @@ const firebaseConfig = {
 // Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig);
 const firebaseAuth = getAuth(firebaseApp);
+const firebaseStorage = getStorage(firebaseApp);
 const googleProvider = new GoogleAuthProvider();
+
+if (location.hostname === "localhost") {
+  self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+} else {
+  self.FIREBASE_APPCHECK_DEBUG_TOKEN = false;
+}
+
+initializeAppCheck(firebaseApp, {
+  provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITEKEY)
+})
 
 // This boot file runs once
 export default boot(({ app, store }) => {
@@ -40,4 +53,5 @@ export default boot(({ app, store }) => {
   // or `proxy.$firebaseAuth` (Composition API)
   app.config.globalProperties.$firebaseAuth = firebaseAuth;
   app.config.globalProperties.$googleProvider = googleProvider;
+  app.config.globalProperties.$firebaseStorage = firebaseStorage;
 });

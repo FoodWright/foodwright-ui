@@ -1,11 +1,13 @@
 <template>
   <q-page class="q-pa-md" style="max-width: 700px; margin: 0 auto">
-    <h4 class="text-h4 q-mt-none q-mb-md">
-      {{ isEditMode ? 'Edit Private Recipe' : 'Create Private Recipe' }}
-    </h4>
+    <div class="row items-center justify-between q-mb-md">
+      <h4 class="text-h4 q-mt-none q-mb-none">
+        {{ isEditMode ? 'Edit Private Recipe' : 'Create Private Recipe' }}
+      </h4>
+    </div>
     <p class="text-body1 text-grey-8 q-mb-lg">
       This recipe will be saved to your private cookbook and will not be
-      submitted to the Guild.
+      submitted to the Guild unless you choose to.
     </p>
 
     <div v-if="loading" class="text-center q-pa-xl">
@@ -31,12 +33,33 @@
 
           <q-input v-model="form.description" label="Description" type="textarea" outlined autogrow class="q-mt-md" />
 
+          <!-- === NEW: q-file component === -->
+          <div class="text-h6 q-mb-sm q-mt-md">Recipe Image</div>
+          <q-file v-model="imageFile" @update:model-value="handleFileUpload" @clear="handleRemoveImage"
+            label="Upload an image (Max 5MB)" accept="image/*" max-file-size="5242880" @rejected="handleUploadError"
+            outlined :loading="isUploading">
+            <template v-slot:prepend>
+              <q-icon name="image" />
+            </template>
+            <template v-slot:append>
+              <q-icon v-if="imageFile || form.image_url" name="cancel" @click.stop.prevent="handleRemoveImage"
+                class="cursor-pointer" />
+            </template>
+          </q-file>
+
+          <!-- Image Preview -->
+          <q-img v-if="form.image_url" :src="form.image_url" ratio="1.9" class="rounded-borders q-mt-md">
+            <q-btn flat round color="white" icon="delete" class="absolute-top-right q-ma-xs" @click="handleRemoveImage">
+              <q-tooltip>Remove Image</q-tooltip>
+            </q-btn>
+          </q-img>
+          <!-- === -->
+
           <q-input v-model="form.tags" label="Tags (comma separated, e.g. personal, quick)"
             hint="Enter tags to help you categorize." outlined class="q-mt-md" />
 
-          <!-- XP is not relevant for private recipes -->
           <q-input v-model.number="form.xp" type="number" label="XP" outlined class="q-mt-md" readonly disable
-            hint="XP is not applicable for private recipes." />
+            hint="XP (10-100) will be assigned if you submit to the Guild." />
         </q-card-section>
       </q-card>
 
@@ -81,28 +104,47 @@
         </q-card-section>
       </q-card>
 
-      <!-- Submit Button -->
-      <q-btn :label="isEditMode ? 'Save Changes' : 'Save to Cookbook'" type="submit" color="primary" size="lg"
-        class="full-width q-mt-md" :loading="isSubmitting" />
+      <!-- Action Buttons -->
+      <div class="row q-gutter-md q-mt-md">
+        <q-btn :label="isEditMode ? 'Save Changes' : 'Save to Cookbook'" type="submit" color="primary" size="lg"
+          class="col" :loading="isSubmitting" />
+
+        <q-btn v-if="isEditMode && form.status === 'private'" label="Submit to Guild" @click="handleSubmitToGuild"
+          color="positive" outline size="lg" class="col" :loading="isSubmittingGuild" icon="fas fa-shield-alt">
+          <q-tooltip>Submit this recipe for Guild review. It will become public if
+            approved.</q-tooltip>
+        </q-btn>
+      </div>
     </q-form>
   </q-page>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, computed } from 'vue';
+import { reactive, ref, onMounted, computed, getCurrentInstance } from 'vue';
 import { useAuthStore } from 'stores/auth';
 import { useQuasar } from 'quasar';
 import { useRouter, useRoute } from 'vue-router';
+import {
+  ref as storageRef,
+  uploadBytesResumable,
+  getDownloadURL,
+} from 'firebase/storage';
 
 const authStore = useAuthStore();
 const $q = useQuasar();
 const router = useRouter();
 const route = useRoute();
 
+const { proxy } = getCurrentInstance();
+const $firebaseStorage = proxy.$firebaseStorage;
+
 const isSubmitting = ref(false);
+const isSubmittingGuild = ref(false);
 const loading = ref(false);
 const error = ref(null);
 const recipeId = ref(route.params.id || null);
+const isUploading = ref(false);
+const imageFile = ref(null);
 
 const isEditMode = computed(() => !!recipeId.value);
 
@@ -110,26 +152,27 @@ const form = reactive({
   title: '',
   description: '',
   tags: '',
-  xp: 0, // Not used for private
+  xp: 0,
+  status: 'private',
   ingredients: [],
   instructions: [],
+  image_url: '',
 });
 
-// --- Ingredients Functions ---
+// ... (ingredients/instructions functions are unchanged) ...
 const addIngredient = () => {
   form.ingredients.push({ quantity: '', name: '' });
 };
 const removeIngredient = (index) => {
   form.ingredients.splice(index, 1);
 };
-
-// --- Instructions Functions ---
 const addInstruction = () => {
   form.instructions.push({ step: '' });
 };
 const removeInstruction = (index) => {
   form.instructions.splice(index, 1);
 };
+
 
 // --- API Fetch Helper ---
 const API_URL = 'http://localhost:8080/api';
@@ -147,9 +190,61 @@ const fetchWithAuth = async (endpoint, options = {}) => {
       errData.message || `Server responded with ${response.status}`
     );
   }
-  return response.json();
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.indexOf("application/json") !== -1) {
+    return response.json();
+  }
+  return null;
 };
 // --- End API Helper ---
+
+// --- NEW: Firebase Uploader Functions ---
+const handleFileUpload = (file) => {
+  if (!file) {
+    return;
+  }
+  if (!authStore.user) {
+    $q.notify({ color: 'negative', message: 'You must be logged in to upload images.' });
+    imageFile.value = null;
+    return;
+  }
+
+  isUploading.value = true;
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${authStore.user.uid}-${Date.now()}.${fileExt}`;
+  const sRef = storageRef($firebaseStorage, `recipe_images/${fileName}`);
+
+  const uploadTask = uploadBytesResumable(sRef, file);
+
+  uploadTask.on(
+    'state_changed',
+    () => { /* Handle progress */ },
+    (error) => {
+      console.error('Upload failed:', error);
+      $q.notify({ color: 'negative', message: 'Image upload failed.' });
+      isUploading.value = false;
+      imageFile.value = null;
+    },
+    async () => {
+      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      form.image_url = downloadURL; // <-- SET THE URL
+      $q.notify({ color: 'positive', message: 'Image uploaded!' });
+      isUploading.value = false;
+    }
+  );
+};
+
+const handleUploadError = () => {
+  $q.notify({ color: 'negative', message: 'Image upload failed. File may be too large or not an image.' });
+};
+
+const handleRemoveImage = () => {
+  form.image_url = '';
+  imageFile.value = null;
+  // We don't delete from storage, just clear the URL.
+  $q.notify({ color: 'info', message: 'Image selection cleared.' });
+};
+// --- End Uploader Functions ---
 
 const fetchRecipeForEdit = async () => {
   if (!isEditMode.value) return;
@@ -157,17 +252,17 @@ const fetchRecipeForEdit = async () => {
   error.value = null;
   try {
     const recipe = await fetchWithAuth(`/recipes/${recipeId.value}`);
-    // Security check: Make sure this user owns this recipe
     if (recipe.submitted_by_user_id.String !== authStore.user.uid) {
       throw new Error("You do not have permission to edit this recipe.");
     }
-    // Load data into the form
     form.title = recipe.title;
     form.description = recipe.description;
     form.tags = (recipe.tags || []).join(', ');
     form.xp = recipe.xp;
+    form.status = recipe.status;
     form.ingredients = recipe.ingredients || [];
     form.instructions = recipe.instructions || [];
+    form.image_url = recipe.image_url.String || ''; // <-- NEW
   } catch (err) {
     console.error('Failed to fetch recipe for edit:', err);
     error.value = err.message;
@@ -177,6 +272,11 @@ const fetchRecipeForEdit = async () => {
 };
 
 const handleSubmit = async () => {
+  if (isUploading.value) {
+    $q.notify({ color: 'warning', message: 'Please wait for image to finish uploading.' });
+    return;
+  }
+
   isSubmitting.value = true;
   try {
     const tagsArray = form.tags
@@ -193,6 +293,7 @@ const handleSubmit = async () => {
       tags: tagsArray,
       ingredients: cleanIngredients,
       instructions: cleanInstructions,
+      image_url: form.image_url, // <-- NEW
     };
 
     if (isEditMode.value) {
@@ -216,9 +317,7 @@ const handleSubmit = async () => {
         message: 'Recipe saved to your private cookbook!',
       });
     }
-
     router.push('/my-cookbook?tab=private');
-
   } catch (err) {
     console.error('Failed to save recipe:', err);
     $q.notify({
@@ -230,8 +329,46 @@ const handleSubmit = async () => {
   }
 };
 
+const handleSubmitToGuild = async () => {
+  $q.dialog({
+    title: 'Submit to Guild?',
+    message: 'This will save any pending changes and submit your recipe for Guild review. Are you sure?',
+    cancel: true,
+    persistent: true,
+    ok: {
+      color: 'positive',
+      label: 'Submit'
+    }
+  }).onOk(async () => {
+    isSubmittingGuild.value = true;
+    try {
+      // First, save any pending changes
+      await handleSubmit();
+
+      // Then, submit it
+      await fetchWithAuth(`/recipes/private/${recipeId.value}/submit`, {
+        method: 'POST',
+      });
+
+      $q.notify({
+        color: 'positive',
+        message: 'Recipe submitted to the Guild for review!',
+      });
+
+      router.push('/my-submissions');
+    } catch (err) {
+      console.error('Failed to submit to guild:', err);
+      $q.notify({
+        color: 'negative',
+        message: `Failed to submit: ${err.message}`,
+      });
+    } finally {
+      isSubmittingGuild.value = false;
+    }
+  });
+};
+
 onMounted(() => {
   fetchRecipeForEdit();
 });
-
 </script>

@@ -1,14 +1,16 @@
 <template>
   <q-page class="q-pa-md" style="max-width: 900px; margin: 0 auto">
     <h4 class="text-h4 q-mt-none q-mb-md">My Submissions</h4>
-    <p class="text-body1 text-grey-8 q-mb-lg">
-      Track the status of your submitted recipes.
+    <p class="text-body1 text-grey-8">
+      Track the status of your Guild submissions here.
     </p>
 
+    <!-- Loading Spinner -->
     <div v-if="loading" class="text-center q-pa-xl">
       <q-spinner-dots color="primary" size="3em" />
     </div>
 
+    <!-- Error Message -->
     <div v-if="error" class="q-pa-md">
       <q-banner rounded class="bg-red-1 text-red-8">
         <template v-slot:avatar>
@@ -18,27 +20,55 @@
       </q-banner>
     </div>
 
+    <!-- No Submissions Message -->
     <div v-if="recipes.length === 0 && !loading" class="text-center q-pa-xl">
-      <q-icon name="edit_note" size="3em" class="text-grey-5 q-mb-sm" />
-      <div class="text-h6 text-grey-7">You haven't submitted any recipes.</div>
-      <q-btn to="/submit" label="Submit Your First Recipe" color="primary" class="q-mt-md" />
+      <q-icon name="file_upload_off" size="3em" class="text-grey-5 q-mb-sm" />
+      <div class="text-h6 text-grey-7">No submissions yet.</div>
+      <p class="q-mt-sm">
+        Submit your first recipe to the Guild to earn XP!
+      </p>
+      <q-btn to="/submit" label="Submit a Recipe" color="primary" class="q-mt-md" />
     </div>
 
-    <q-list v-else separator bordered>
-      <q-item v-for="recipe in recipes" :key="recipe.id" class="q-py-md">
-        <q-item-section>
-          <q-item-label class="text-h6">{{ recipe.title }}</q-item-label>
-          <q-item-label caption class="q-mb-sm">
-            Submitted {{ formatTimeAgo(recipe.created_at) }}
-          </q-item-label>
-          <q-item-label>{{ recipe.description }}</q-item-label>
-        </q-item-section>
-        <q-item-section side>
-          <q-chip :color="statusColor(recipe.status)" text-color="white" :icon="statusIcon(recipe.status)"
-            :label="recipe.status" />
-        </q-item-section>
-      </q-item>
-    </q-list>
+    <!-- Submissions List -->
+    <div v-else class="row q-col-gutter-md">
+      <div v-for="recipe in recipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
+        <q-card class="recipe-card full-height" flat bordered>
+          <!-- === NEW: Display Image === -->
+          <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
+          <q-card-section class="q-pa-sm q-pb-none" v-else>
+            <q-img :ratio="16 / 9" class="bg-grey-2" />
+          </q-card-section>
+          <!-- === -->
+
+          <q-card-section class="q-pt-sm">
+            <div class="row items-center justify-between no-wrap">
+              <div class="text-h6 ellipsis">{{ recipe.title }}</div>
+              <q-chip :color="statusColor(recipe.status)" text-color="white" :label="recipe.status" size="sm"
+                class="q-ml-sm text-capitalize" />
+            </div>
+            <p class="text-grey-8 ellipsis-3-lines q-mt-xs">
+              {{ recipe.description }}
+            </p>
+          </q-card-section>
+
+          <q-space />
+
+          <q-card-actions align="right" class="q-pa-md">
+            <!-- Show 'Edit' if it's 'private' or 'rejected' -->
+            <q-btn v-if="recipe.status === 'private' || recipe.status === 'rejected'"
+              :to="`/my-cookbook/private/edit/${recipe.id}`" label="Edit" color="primary" flat dense />
+            <!-- Show 'View' if it's 'approved' -->
+            <q-btn v-if="recipe.status === 'approved'" :to="`/recipe/${recipe.id}`" label="View" color="primary" flat
+              dense />
+            <!-- Show 'Pending' as text if pending -->
+            <q-item-label v-if="recipe.status === 'pending'" caption>
+              Pending Review
+            </q-item-label>
+          </q-card-actions>
+        </q-card>
+      </div>
+    </div>
   </q-page>
 </template>
 
@@ -79,7 +109,7 @@ const fetchMySubmissions = async () => {
   error.value = null;
   try {
     const data = await fetchWithAuth('/recipes/my-submissions');
-    recipes.value = data;
+    recipes.value = data || [];
   } catch (err) {
     error.value = err.message;
     console.error(err);
@@ -88,7 +118,6 @@ const fetchMySubmissions = async () => {
   }
 };
 
-// --- UI Helpers ---
 const statusColor = (status) => {
   switch (status) {
     case 'approved':
@@ -97,38 +126,11 @@ const statusColor = (status) => {
       return 'orange';
     case 'rejected':
       return 'negative';
+    case 'private':
+      return 'grey-7';
     default:
-      return 'grey';
+      return 'primary';
   }
-};
-
-const statusIcon = (status) => {
-  switch (status) {
-    case 'approved':
-      return 'check_circle';
-    case 'pending':
-      return 'hourglass_top';
-    case 'rejected':
-      return 'cancel';
-    default:
-      return 'help';
-  }
-};
-
-const formatTimeAgo = (isoString) => {
-  const date = new Date(isoString);
-  const seconds = Math.floor((new Date() - date) / 1000);
-  let interval = seconds / 31536000; // years
-  if (interval > 1) return Math.floor(interval) + ' years ago';
-  interval = seconds / 2592000; // months
-  if (interval > 1) return Math.floor(interval) + ' months ago';
-  interval = seconds / 86400; // days
-  if (interval > 1) return Math.floor(interval) + ' days ago';
-  interval = seconds / 3600; // hours
-  if (interval > 1) return Math.floor(interval) + ' hours ago';
-  interval = seconds / 60; // minutes
-  if (interval > 1) return Math.floor(interval) + ' minutes ago';
-  return Math.floor(seconds) + ' seconds ago';
 };
 
 onMounted(() => {
@@ -139,3 +141,31 @@ onMounted(() => {
   }
 });
 </script>
+
+<style scoped>
+.recipe-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.recipe-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+}
+
+.ellipsis-3-lines {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

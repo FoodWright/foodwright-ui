@@ -2,7 +2,6 @@
   <q-page class="q-pa-md" style="max-width: 900px; margin: 0 auto">
     <div class="row items-center justify-between q-mb-md">
       <h4 class="text-h4 q-mt-none q-mb-none">My Cookbook</h4>
-      <!-- "Add Private Recipe" button -->
       <q-btn v-if="tab === 'private'" to="/my-cookbook/private/new" label="Add Private Recipe" color="primary"
         icon="add" />
     </div>
@@ -25,7 +24,6 @@
         <div v-if="loading.favorites" class="text-center q-pa-xl">
           <q-spinner-dots color="primary" size="3em" />
         </div>
-
         <div v-if="error.favorites" class="q-pa-md">
           <q-banner rounded class="bg-red-1 text-red-8">
             <template v-slot:avatar>
@@ -34,7 +32,6 @@
             <strong>Error fetching your favorites:</strong> {{ error.favorites }}
           </q-banner>
         </div>
-
         <div v-if="favorites.length === 0 && !loading.favorites" class="text-center q-pa-xl">
           <q-icon name="bookmark_border" size="3em" class="text-grey-5 q-mb-sm" />
           <div class="text-h6 text-grey-7">No favorite recipes yet.</div>
@@ -47,9 +44,16 @@
         <!-- Favorites Recipe List -->
         <div v-else class="row q-col-gutter-md">
           <div v-for="recipe in favorites" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
-            <router-link :to="`/recipe/${recipe.id}`" class="recipe-link">
-              <q-card class="recipe-card full-height" flat bordered>
-                <q-card-section>
+            <q-card class="recipe-card full-height" flat bordered>
+              <router-link :to="`/recipe/${recipe.id}`" class="recipe-link">
+                <!-- === NEW: Display Image === -->
+                <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
+                <q-card-section class="q-pa-sm q-pb-none" v-else>
+                  <q-img :ratio="16 / 9" class="bg-grey-2" />
+                </q-card-section>
+                <!-- === -->
+
+                <q-card-section class="q-pt-sm">
                   <div class="row justify-between no-wrap">
                     <div class="text-h6 ellipsis">{{ recipe.title }}</div>
                     <q-btn flat round color="primary" icon="bookmark" @click.prevent="toggleFavorite(recipe.id)" />
@@ -58,8 +62,8 @@
                     {{ recipe.description }}
                   </p>
                 </q-card-section>
-              </q-card>
-            </router-link>
+              </router-link>
+            </q-card>
           </div>
         </div>
       </q-tab-panel>
@@ -74,7 +78,6 @@
         <div v-if="loading.private" class="text-center q-pa-xl">
           <q-spinner-dots color="primary" size="3em" />
         </div>
-
         <div v-if="error.private" class="q-pa-md">
           <q-banner rounded class="bg-red-1 text-red-8">
             <template v-slot:avatar>
@@ -83,7 +86,6 @@
             <strong>Error fetching your recipes:</strong> {{ error.private }}
           </q-banner>
         </div>
-
         <div v-if="privateRecipes.length === 0 && !loading.private" class="text-center q-pa-xl">
           <q-icon name="edit_note" size="3em" class="text-grey-5 q-mb-sm" />
           <div class="text-h6 text-grey-7">No private recipes found.</div>
@@ -97,7 +99,14 @@
           <div v-for="recipe in privateRecipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
             <q-card class="recipe-card full-height" flat bordered>
               <router-link :to="`/recipe/${recipe.id}`" class="recipe-link">
-                <q-card-section>
+                <!-- === NEW: Display Image === -->
+                <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
+                <q-card-section class="q-pa-sm q-pb-none" v-else>
+                  <q-img :ratio="16 / 9" class="bg-grey-2" />
+                </q-card-section>
+                <!-- === -->
+
+                <q-card-section class="q-pt-sm">
                   <div class="text-h6 ellipsis">{{ recipe.title }}</div>
                   <p class="text-grey-8 ellipsis-3-lines q-mt-sm">
                     {{ recipe.description }}
@@ -161,6 +170,9 @@ const fetchWithAuth = async (endpoint, options = {}) => {
   if (response.status === 200 && response.headers.get('content-length') === '0') {
     return null;
   }
+  // Handle 204 No Content
+  if (response.status === 204) return null;
+
   return response.json();
 };
 // --- End API Helper ---
@@ -197,7 +209,6 @@ const toggleFavorite = async (recipeId) => {
       color: 'negative',
       message: `Failed to remove favorite: ${err.message}`,
     });
-    // Add it back on failure (though a refresh would be safer)
     fetchMyCookbook();
   }
 };
@@ -263,21 +274,35 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* FIX: This makes the private recipe card layout correctly */
 .recipe-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
   height: 100%;
-}
-
-.recipe-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
 }
 
 .recipe-link {
   text-decoration: none;
   color: inherit;
-  display: block;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  /* This is the key */
+}
+
+.recipe-link .q-card-section {
+  flex-grow: 1;
+}
+
+.recipe-card .q-card-actions {
+  flex-shrink: 0;
+}
+
+/* End Fix */
+
+.recipe-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
 }
 
 .ellipsis-3-lines {
@@ -292,17 +317,5 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* Style for the link inside the card */
-.recipe-link .q-card-section {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Make actions take up no extra space */
-.recipe-card .q-card-actions {
-  flex-grow: 0;
 }
 </style>

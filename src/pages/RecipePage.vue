@@ -22,13 +22,16 @@
         <!-- Main Recipe Details -->
         <div class="col-12 col-md-7">
           <q-card flat bordered class="full-height">
+            <!-- === NEW: Display Image === -->
+            <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
+            <!-- === -->
+
             <q-card-section>
               <div class="row items-start justify-between no-wrap">
                 <h4 class="text-h4 q-mt-none q-mb-sm q-pr-lg">
                   {{ recipe.title }}
                 </h4>
 
-                <!-- === Favorite Button === -->
                 <q-btn v-if="authStore.user" flat round :color="isFavorited ? 'primary' : 'grey'" :icon="isFavorited ? 'bookmark' : 'bookmark_border'
                   " @click.prevent="toggleFavorite" class="q-ml-md">
                   <q-tooltip>{{ isFavorited ? 'Remove from Cookbook' : 'Add to Cookbook' }}</q-tooltip>
@@ -36,7 +39,6 @@
               </div>
               <p class="text-body1 text-grey-8">{{ recipe.description }}</p>
 
-              <!-- Submitted By -->
               <div v-if="recipe.submitted_by_username.Valid" class="q-mt-sm text-caption text-grey-7">
                 Submitted by:
                 <router-link :to="`/user/${recipe.submitted_by_user_id.String}`" class="user-link">
@@ -96,7 +98,7 @@
           </q-card>
         </div>
 
-        <!-- Log Cook & Guild Logs -->
+        <!-- Right Column: Logs & Comments -->
         <div class="col-12 col-md-5">
           <!-- "I Made This!" Button Card -->
           <q-card flat bordered class="q-mb-md">
@@ -152,6 +154,60 @@
               </q-item-section>
             </q-item>
           </q-list>
+
+          <!-- === NEW: Comments Section === -->
+          <div class="text-h6 q-mb-sm q-mt-lg">Guild Comments</div>
+
+          <q-card v-if="authStore.user" flat bordered class="q-mb-md">
+            <q-card-section>
+              <q-form @submit.prevent="handleCommentSubmit" class="q-gutter-sm">
+                <q-input v-model="newComment" label="Have a question or suggestion?" type="textarea" outlined
+                  autogrow />
+                <q-btn label="Submit Comment" type="submit" color="primary" :loading="isSubmittingComment"
+                  :disable="newComment.trim() === ''" class="full-width" />
+              </q-form>
+            </q-card-section>
+          </q-card>
+
+          <div v-else class="text-grey-7 q-mb-md">
+            You must be logged in to post a comment.
+          </div>
+
+          <!-- Comments Loading/Error -->
+          <div v-if="commentsLoading" class="text-center q-pa-md">
+            <q-spinner-dots color="primary" size="2em" />
+          </div>
+          <div v-if="commentsError" class="text-red">
+            Error fetching comments: {{ commentsError }}
+          </div>
+
+          <!-- No Comments State -->
+          <div v-if="comments.length === 0 && !commentsLoading" class="text-center text-grey-7 q-pa-md">
+            <q-icon name="forum" size="2em" class="q-mb-sm" />
+            <div>Be the first to post a comment!</div>
+          </div>
+
+          <!-- Comments List -->
+          <q-list v-else separator>
+            <q-item v-for="comment in comments" :key="comment.id" class="q-py-md">
+              <q-item-section>
+                <q-item-label class="text-weight-bold">
+                  <router-link :to="`/user/${comment.user_id}`" class="user-link" v-if="comment.user_id">
+                    {{ comment.username }}
+                  </router-link>
+                  <span v-else>{{ comment.username }}</span>
+                </q-item-label>
+                <q-item-label class="q-mt-sm comment-text">
+                  {{ comment.comment }}
+                </q-item-label>
+                <q-item-label caption class="q-mt-xs">
+                  Posted {{ formatTimeAgo(comment.created_at) }}
+                </q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+          <!-- === END: Comments Section === -->
+
         </div>
       </div>
     </div>
@@ -192,11 +248,9 @@ const route = useRoute();
 const authStore = useAuthStore();
 const $q = useQuasar();
 
-// --- API Config ---
 const API_URL = 'http://localhost:8080/api';
 const recipeId = parseInt(route.params.id, 10);
 
-// --- Page State Refs ---
 const recipe = ref(null);
 const loading = ref(false);
 const error = ref(null);
@@ -205,7 +259,12 @@ const cookLogs = ref([]);
 const logsLoading = ref(false);
 const logsError = ref(null);
 
-// --- Dialog State ---
+const comments = ref([]);
+const commentsLoading = ref(false);
+const commentsError = ref(null);
+const newComment = ref('');
+const isSubmittingComment = ref(false);
+
 const showLogDialog = ref(false);
 const isSubmitting = ref(false);
 const logForm = reactive({
@@ -213,7 +272,6 @@ const logForm = reactive({
   rating: 0,
 });
 
-// --- API Fetch Helper ---
 const fetchWithAuth = async (endpoint, options = {}) => {
   const token = authStore.token;
   const headers = {
@@ -234,7 +292,6 @@ const fetchWithAuth = async (endpoint, options = {}) => {
   return response.json();
 };
 
-// --- API Call Functions ---
 const fetchRecipe = async () => {
   loading.value = true;
   error.value = null;
@@ -254,7 +311,7 @@ const fetchCookLogs = async () => {
   logsError.value = null;
   try {
     const data = await fetchWithAuth(`/recipes/${recipeId}/logs`);
-    cookLogs.value = data;
+    cookLogs.value = data || [];
   } catch (err) {
     logsError.value = err.message;
     console.error(err);
@@ -263,7 +320,20 @@ const fetchCookLogs = async () => {
   }
 };
 
-// --- Dialog Functions ---
+const fetchComments = async () => {
+  commentsLoading.value = true;
+  commentsError.value = null;
+  try {
+    const data = await fetchWithAuth(`/recipes/${recipeId}/comments`);
+    comments.value = data || [];
+  } catch (err) {
+    commentsError.value = err.message;
+    console.error(err);
+  } finally {
+    commentsLoading.value = false;
+  }
+};
+
 const openLogDialog = () => {
   if (!authStore.user) {
     $q.notify({
@@ -323,7 +393,29 @@ const handleLogSubmit = async () => {
   }
 };
 
-// --- Time Ago Formatter ---
+const handleCommentSubmit = async () => {
+  if (newComment.value.trim() === '') return;
+  isSubmittingComment.value = true;
+  try {
+    const newCommentData = await fetchWithAuth(`/recipes/${recipeId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({
+        comment: newComment.value,
+      }),
+    });
+    comments.value.unshift(newCommentData);
+    newComment.value = '';
+  } catch (err) {
+    console.error('Failed to post comment:', err);
+    $q.notify({
+      color: 'negative',
+      message: `Failed to post comment: ${err.message}`,
+    });
+  } finally {
+    isSubmittingComment.value = false;
+  }
+};
+
 const formatTimeAgo = (isoString) => {
   const date = new Date(isoString);
   const seconds = Math.floor((new Date() - date) / 1000);
@@ -340,17 +432,12 @@ const formatTimeAgo = (isoString) => {
   return Math.floor(seconds) + " seconds ago";
 };
 
-// --- NEW: Favorite Functions ---
-
-// ===== THIS IS THE FIX =====
 const isFavorited = computed(() => {
-  // Check if authStore.favoriteRecipeIds is an array before calling .includes()
   return (
     Array.isArray(authStore.favoriteRecipeIds) &&
     authStore.favoriteRecipeIds.includes(recipeId)
   );
 });
-// ===========================
 
 const toggleFavorite = async () => {
   if (!authStore.user) {
@@ -386,7 +473,6 @@ const toggleFavorite = async () => {
       color: 'negative',
       message: `Failed to update cookbook: ${err.message}`,
     });
-    // Rollback optimistic update
     if (alreadyFavorited) {
       authStore.addFavoriteId(recipeId);
     } else {
@@ -395,36 +481,35 @@ const toggleFavorite = async () => {
   }
 };
 
-// --- Lifecycle Hook ---
 onMounted(() => {
   fetchRecipe();
   fetchCookLogs();
+  fetchComments();
 });
 </script>
 
 <style scoped>
-.text-h4 {
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.instruction-list .q-item {
-  align-items: flex-start;
-}
-
-.instruction-list .q-item__section--avatar {
-  min-width: 0;
-  margin-right: 16px;
-  padding-top: 4px;
+.recipe-container {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .user-link {
-  color: var(--q-primary);
+  color: inherit;
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .user-link:hover {
   text-decoration: underline;
+}
+
+.comment-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.instruction-list .q-item {
+  align-items: flex-start;
 }
 </style>
