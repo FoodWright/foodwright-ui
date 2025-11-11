@@ -49,7 +49,7 @@
                 Submitted by:
                 <span class="text-weight-bold">{{
                   recipe.submitted_by_username.String || 'Unknown User'
-                  }}</span>
+                }}</span>
               </div>
               <div class="text-h6">{{ recipe.title }}</div>
               <p class="text-body2 text-grey-8">{{ recipe.description }}</p>
@@ -88,7 +88,7 @@
                       <q-item-section>
                         <q-item-label class="text-body2">{{
                           item.step
-                          }}</q-item-label>
+                        }}</q-item-label>
                       </q-item-section>
                     </q-item>
                   </q-list>
@@ -126,7 +126,7 @@ const error = ref(null);
 const actionLoading = reactive({}); // Track loading state for each button
 
 // --- API Fetch Helper ---
-const API_URL = 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
 const fetchWithAuth = async (endpoint, options = {}) => {
   const token = authStore.token;
   const headers = {

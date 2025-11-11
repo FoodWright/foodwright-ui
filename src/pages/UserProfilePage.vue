@@ -150,7 +150,7 @@ import { useRoute } from 'vue-router';
 
 const route = useRoute();
 
-const API_URL = 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
 const userId = ref(route.params.id);
 
 const profile = ref(null);

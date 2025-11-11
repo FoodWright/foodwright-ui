@@ -85,7 +85,7 @@ const loading = ref(false);
 const error = ref(null);
 
 // --- API Fetch Helper ---
-const API_URL = 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
 const fetchWithAuth = async (endpoint, options = {}) => {
   const token = authStore.token;
   const headers = {

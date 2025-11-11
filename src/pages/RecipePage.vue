@@ -88,7 +88,7 @@
                   <q-item-section>
                     <q-item-label class="text-body1">{{
                       item.step
-                      }}</q-item-label>
+                    }}</q-item-label>
                   </q-item-section>
                 </q-item>
               </q-list>
@@ -246,7 +246,7 @@ const route = useRoute();
 const authStore = useAuthStore();
 const $q = useQuasar();
 
-const API_URL = 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
 const recipeId = parseInt(route.params.id, 10);
 
 const recipe = ref(null);
