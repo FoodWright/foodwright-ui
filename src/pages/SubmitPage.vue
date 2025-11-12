@@ -18,7 +18,6 @@
             (val) => (val && val.length > 0) || 'Description is required',
           ]" lazy-rules outlined autogrow class="q-mt-md" />
 
-          <!-- === NEW: q-file component === -->
           <div class="text-h6 q-mb-sm q-mt-md">Recipe Image</div>
           <q-file v-model="imageFile" @update:model-value="handleFileUpload" @clear="handleRemoveImage"
             label="Upload an image (Max 5MB)" accept="image/*" max-file-size="5242880" @rejected="handleUploadError"
@@ -31,16 +30,16 @@
             </template>
           </q-file>
 
-          <!-- Image Preview -->
           <q-img v-if="form.image_url" :src="form.image_url" ratio="1.9" class="rounded-borders q-mt-md">
             <q-btn flat round color="white" icon="delete" class="absolute-top-right q-ma-xs" @click="handleRemoveImage">
               <q-tooltip>Remove Image</q-tooltip>
             </q-btn>
           </q-img>
-          <!-- === -->
 
-          <q-input v-model="form.tags" label="Tags (comma separated, e.g. baking, bread)"
-            hint="Enter a few tags to help categorize your recipe." outlined class="q-mt-md" />
+          <!-- === MODIFIED: Tags Input === -->
+          <q-select v-model="form.tags" label="Tags" hint="Select existing tags or type to create new ones." outlined
+            multiple use-chips use-input @new-value="handleCreateTag" :options="availableTags" class="q-mt-md" />
+          <!-- === END MODIFICATION === -->
 
           <q-input v-model.number="form.xp" label="Suggested XP *" type="number" :rules="[
             (val) => (val && val > 0) || 'Suggest a fair XP value',
@@ -98,9 +97,10 @@
 </template>
 
 <script setup>
-import { reactive, ref, getCurrentInstance } from 'vue';
+import { reactive, ref, getCurrentInstance, onMounted } from 'vue'; // Added onMounted
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
+import { storeToRefs } from 'pinia'; // <-- NEW
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
 import {
@@ -111,6 +111,7 @@ import {
 
 const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
+const { tags: availableTags } = storeToRefs(recipeStore); // <-- NEW: Get tags from store
 const $q = useQuasar();
 const router = useRouter();
 
@@ -118,13 +119,13 @@ const { proxy } = getCurrentInstance();
 const $firebaseStorage = proxy.$firebaseStorage;
 
 const isSubmitting = ref(false);
-const isUploading = ref(false); // <-- NEW for q-file
-const imageFile = ref(null); // <-- NEW for q-file
+const isUploading = ref(false);
+const imageFile = ref(null);
 
 const form = reactive({
   title: '',
   description: '',
-  tags: '',
+  tags: [], // <-- MODIFIED: Now an array
   xp: 10,
   ingredients: [{ quantity: '', name: '' }],
   instructions: [{ step: '' }],
@@ -145,7 +146,16 @@ const removeInstruction = (index) => {
   form.instructions.splice(index, 1);
 };
 
-// --- NEW: Firebase Uploader Functions ---
+// --- NEW: Handle Tag Creation ---
+const handleCreateTag = (val, done) => {
+  const newTag = val.trim().toLowerCase();
+  if (newTag.length > 0 && !form.tags.includes(newTag)) {
+    done(newTag, 'add-unique');
+  }
+};
+// ---
+
+// --- Firebase Uploader Functions (unchanged) ---
 const handleFileUpload = (file) => {
   if (!file) {
     return;
@@ -174,7 +184,7 @@ const handleFileUpload = (file) => {
     },
     async () => {
       const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-      form.image_url = downloadURL; // <-- SET THE URL
+      form.image_url = downloadURL;
       $q.notify({ color: 'positive', message: 'Image uploaded!' });
       isUploading.value = false;
     }
@@ -188,7 +198,6 @@ const handleUploadError = () => {
 const handleRemoveImage = () => {
   form.image_url = '';
   imageFile.value = null;
-  // We don't delete from storage, just clear the URL.
   $q.notify({ color: 'info', message: 'Image selection cleared.' });
 };
 // --- End Uploader Functions ---
@@ -201,11 +210,7 @@ const handleSubmit = async () => {
 
   isSubmitting.value = true;
   try {
-    const tagsArray = form.tags
-      .split(',')
-      .map((tag) => tag.trim().toLowerCase())
-      .filter((tag) => tag.length > 0);
-
+    // --- MODIFIED: No longer need to parse tags ---
     const cleanIngredients = form.ingredients.filter(i => i.name && i.name.trim() !== '');
     const cleanInstructions = form.instructions.filter(i => i.step && i.step.trim() !== '');
 
@@ -213,13 +218,14 @@ const handleSubmit = async () => {
       title: form.title,
       description: form.description,
       xp: form.xp,
-      tags: tagsArray,
+      tags: form.tags, // <-- MODIFIED: Already an array
       ingredients: cleanIngredients,
       instructions: cleanInstructions,
-      image_url: form.image_url, // <-- NEW
+      image_url: form.image_url,
     };
 
     await recipeStore.submitRecipe(newRecipe);
+    // ---
 
     $q.notify({
       color: 'positive',
@@ -239,4 +245,9 @@ const handleSubmit = async () => {
     isSubmitting.value = false;
   }
 };
+
+// --- NEW: Fetch tags on load ---
+onMounted(() => {
+  recipeStore.fetchTags();
+});
 </script>

@@ -47,6 +47,26 @@
               <div class="q-mt-md q-gutter-xs">
                 <q-chip v-for="tag in recipe.tags" :key="tag" outline color="grey-7" :label="tag" />
               </div>
+
+              <!-- === NEW: Guild Rating Section === -->
+              <q-separator class="q-my-md" />
+              <div>
+                <div class="text-h6 q-mb-xs">Guild Rating</div>
+                <div v-if="recipe.cook_count > 0" class="row items-center q-gutter-sm">
+                  <q-rating :model-value="recipe.avg_rating" size="md" color="orange" icon="star" readonly />
+                  <div class="text-body1 text-grey-8">
+                    {{ recipe.avg_rating.toFixed(1) }} out of 5
+                  </div>
+                  <div class="text-caption text-grey-7">
+                    ({{ recipe.cook_count }} {{ recipe.cook_count === 1 ? 'rating' : 'ratings' }})
+                  </div>
+                </div>
+                <div v-else class="text-body1 text-grey-7">
+                  No ratings yet. Be the first to log a cook!
+                </div>
+              </div>
+              <!-- === END NEW === -->
+
             </q-card-section>
             <q-separator />
 
@@ -88,7 +108,7 @@
                   <q-item-section>
                     <q-item-label class="text-body1">{{
                       item.step
-                    }}</q-item-label>
+                      }}</q-item-label>
                   </q-item-section>
                 </q-item>
               </q-list>
@@ -272,6 +292,8 @@ const fetchRecipe = async () => {
   loading.value = true;
   error.value = null;
   try {
+    // We clear the old recipe from the store first
+    recipeStore.recipe = null;
     await recipeStore.fetchRecipe(recipeId);
   } catch (err) {
     error.value = err.message;
@@ -351,6 +373,8 @@ const handleLogSubmit = async () => {
       });
     }
     showLogDialog.value = false;
+    // --- NEW: Refresh the main recipe data to update rating ---
+    await fetchRecipe();
   } catch (err) {
     console.error('Failed to log cook:', err);
     $q.notify({

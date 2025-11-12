@@ -34,23 +34,17 @@
             </div>
           </div>
 
-          <!-- === MODIFIED: Badges Section === -->
           <div v-if="guildProfile.badges && guildProfile.badges.length" class="q-mt-md">
             <div class="text-overline text-grey-7">Your Badges</div>
             <q-chip v-for="badge in guildProfile.badges" :key="badge.id" color="secondary" text-color="white" size="md"
               :label="badge.name" class="q-mr-sm">
-              <!-- === FIX: Use the working pattern from SiteAdminPage === -->
               <template v-slot:prepend>
                 <q-avatar v-if="badge.icon_url.Valid">
-                  <!-- Case 1: Icon is a URL -->
                   <q-img :src="badge.icon_url.String" v-if="badge.icon_url.String.startsWith('http')" />
-                  <!-- Case 2: Icon is a FontAwesome name -->
                   <q-icon :name="badge.icon_url.String" v-else />
                 </q-avatar>
-                <!-- Case 3: No Icon (fallback) -->
                 <q-avatar v-else icon="military_tech" color="transparent" text-color="white" />
               </template>
-              <!-- === END FIX === -->
 
               <q-tooltip class="bg-black text-body2" :offset="[10, 10]">
                 <div class="text-weight-bold">{{ badge.name }}</div>
@@ -61,7 +55,6 @@
               </q-tooltip>
             </q-chip>
           </div>
-          <!-- === END MODIFICATION === -->
 
         </q-card-section>
       </q-card>
@@ -141,6 +134,19 @@
                 <p class="text-grey-8 ellipsis-3-lines q-mt-xs">
                   {{ recipe.description }}
                 </p>
+
+                <!-- === NEW: Rating Display === -->
+                <div class="q-mt-sm" v-if="recipe.cook_count > 0">
+                  <q-rating :model-value="recipe.avg_rating" size="xs" color="orange" icon="star" readonly />
+                  <span class="text-caption text-grey-7 q-ml-xs">
+                    ({{ recipe.cook_count }} {{ recipe.cook_count === 1 ? 'review' : 'reviews' }})
+                  </span>
+                </div>
+                <div class="q-mt-sm text-caption text-grey-6" v-else>
+                  No reviews yet
+                </div>
+                <!-- === END NEW === -->
+
               </q-card-section>
             </q-card>
           </router-link>
@@ -196,7 +202,6 @@ const fetchRecipes = async () => {
       params.tags = selectedTags.value.join(',');
     }
 
-    // --- FIX: Use the fetchPublic helper ---
     const data = await recipeStore.fetchRecipes(params);
     totalPages.value = data.total_pages || 1;
     currentPage.value = data.current_page || 1;
@@ -210,7 +215,6 @@ const fetchRecipes = async () => {
 
 const fetchTags = async () => {
   try {
-    // --- FIX: Use the fetchTags action ---
     await recipeStore.fetchTags();
   } catch (err) {
     console.error('Failed to fetch tags:', err);
@@ -224,8 +228,6 @@ const fetchProfileAndFavorites = async () => {
     favoritesLoaded.value = true;
   } catch (err) {
     console.error('Failed to fetch profile/favorites:', err);
-    // Don't show auth error on the main recipe feed
-    // error.value = err.message;
     $q.notify({ color: 'negative', message: 'Could not load your profile.' })
   }
 };
@@ -288,32 +290,23 @@ watch(currentPage, () => {
 });
 
 onMounted(() => {
-  // Public calls can fire immediately
   fetchRecipes();
   fetchTags();
-
-  // --- MODIFICATION ---
-  // We no longer check authStore.user here.
-  // We *only* rely on the authReady watcher.
 });
 
-// --- MODIFICATION: This watcher is now the source of truth for auth calls ---
 watch(
   () => authStore.authReady,
   (isReady) => {
     if (isReady && authStore.user) {
-      // Auth is fully initialized, token is ready, and we have a user.
-      // NOW it's safe to fetch private data.
       console.log('Auth is ready and user is present. Fetching profile.');
       fetchProfileAndFavorites();
     } else if (isReady) {
-      // Auth is ready, but user is null (logged out)
       console.log('Auth is ready, but no user.');
       favoritesLoaded.value = false;
       userStore.profile = null;
     }
   },
-  { immediate: true } // Run this logic once on component load
+  { immediate: true }
 );
 </script>
 

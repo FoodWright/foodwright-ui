@@ -33,7 +33,6 @@
 
           <q-input v-model="form.description" label="Description" type="textarea" outlined autogrow class="q-mt-md" />
 
-          <!-- === NEW: q-file component === -->
           <div class="text-h6 q-mb-sm q-mt-md">Recipe Image</div>
           <q-file v-model="imageFile" @update:model-value="handleFileUpload" @clear="handleRemoveImage"
             label="Upload an image (Max 5MB)" accept="image/*" max-file-size="5242880" @rejected="handleUploadError"
@@ -47,16 +46,16 @@
             </template>
           </q-file>
 
-          <!-- Image Preview -->
           <q-img v-if="form.image_url" :src="form.image_url" ratio="1.9" class="rounded-borders q-mt-md">
             <q-btn flat round color="white" icon="delete" class="absolute-top-right q-ma-xs" @click="handleRemoveImage">
               <q-tooltip>Remove Image</q-tooltip>
             </q-btn>
           </q-img>
-          <!-- === -->
 
-          <q-input v-model="form.tags" label="Tags (comma separated, e.g. personal, quick)"
-            hint="Enter tags to help you categorize." outlined class="q-mt-md" />
+          <!-- === MODIFIED: Tags Input === -->
+          <q-select v-model="form.tags" label="Tags" hint="Select existing tags or type to create new ones." outlined
+            multiple use-chips use-input @new-value="handleCreateTag" :options="availableTags" class="q-mt-md" />
+          <!-- === END MODIFICATION === -->
 
           <q-input v-model.number="form.xp" type="number" label="XP" outlined class="q-mt-md" readonly disable
             hint="XP (10-100) will be assigned if you submit to the Guild." />
@@ -122,7 +121,8 @@
 <script setup>
 import { reactive, ref, onMounted, computed, getCurrentInstance } from 'vue';
 import { useAuthStore } from 'stores/auth';
-import { useRecipeStore } from 'stores/recipes';
+import { useRecipeStore } from 'stores/recipes'; // <-- NEW
+import { storeToRefs } from 'pinia'; // <-- NEW
 import { useQuasar } from 'quasar';
 import { useRouter, useRoute } from 'vue-router';
 import {
@@ -132,7 +132,8 @@ import {
 } from 'firebase/storage';
 
 const authStore = useAuthStore();
-const recipeStore = useRecipeStore();
+const recipeStore = useRecipeStore(); // <-- NEW
+const { tags: availableTags } = storeToRefs(recipeStore); // <-- NEW
 const $q = useQuasar();
 const router = useRouter();
 const route = useRoute();
@@ -153,7 +154,7 @@ const isEditMode = computed(() => !!recipeId.value);
 const form = reactive({
   title: '',
   description: '',
-  tags: '',
+  tags: [], // <-- MODIFIED: Now an array
   xp: 0,
   status: 'private',
   ingredients: [],
@@ -175,7 +176,18 @@ const removeInstruction = (index) => {
   form.instructions.splice(index, 1);
 };
 
-// --- NEW: Firebase Uploader Functions ---
+// --- NEW: Handle Tag Creation ---
+const handleCreateTag = (val, done) => {
+  const newTag = val.trim().toLowerCase();
+  if (newTag.length > 0 && !form.tags.includes(newTag)) {
+    // We can optionally add it to the availableTags list for this session
+    // availableTags.value.push(newTag);
+    done(newTag, 'add-unique');
+  }
+};
+// ---
+
+// --- Firebase Uploader Functions (unchanged) ---
 const handleFileUpload = (file) => {
   if (!file) {
     return;
@@ -204,21 +216,18 @@ const handleFileUpload = (file) => {
     },
     async () => {
       const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-      form.image_url = downloadURL; // <-- SET THE URL
+      form.image_url = downloadURL;
       $q.notify({ color: 'positive', message: 'Image uploaded!' });
       isUploading.value = false;
     }
   );
 };
-
 const handleUploadError = () => {
   $q.notify({ color: 'negative', message: 'Image upload failed. File may be too large or not an image.' });
 };
-
 const handleRemoveImage = () => {
   form.image_url = '';
   imageFile.value = null;
-  // We don't delete from storage, just clear the URL.
   $q.notify({ color: 'info', message: 'Image selection cleared.' });
 };
 // --- End Uploader Functions ---
@@ -228,18 +237,18 @@ const fetchRecipeForEdit = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const recipe = await recipeStore.fetchRecipe(recipeId.value);
+    const recipe = await recipeStore.fetchRecipe(recipeId.value); // Use store
     if (recipe.submitted_by_user_id.String !== authStore.user.uid) {
       throw new Error("You do not have permission to edit this recipe.");
     }
     form.title = recipe.title;
     form.description = recipe.description;
-    form.tags = (recipe.tags || []).join(', ');
+    form.tags = recipe.tags || []; // <-- MODIFIED: Already an array
     form.xp = recipe.xp;
     form.status = recipe.status;
     form.ingredients = recipe.ingredients || [];
     form.instructions = recipe.instructions || [];
-    form.image_url = recipe.image_url.String || ''; // <-- NEW
+    form.image_url = recipe.image_url.String || '';
   } catch (err) {
     console.error('Failed to fetch recipe for edit:', err);
     error.value = err.message;
@@ -256,11 +265,7 @@ const handleSubmit = async () => {
 
   isSubmitting.value = true;
   try {
-    const tagsArray = form.tags
-      .split(',')
-      .map((tag) => tag.trim().toLowerCase())
-      .filter((tag) => tag.length > 0);
-
+    // --- MODIFIED: No longer need to parse tags ---
     const cleanIngredients = form.ingredients.filter(i => i.name && i.name.trim() !== '');
     const cleanInstructions = form.instructions.filter(i => i.step && i.step.trim() !== '');
 
@@ -268,13 +273,13 @@ const handleSubmit = async () => {
       id: recipeId.value,
       title: form.title,
       description: form.description,
-      tags: tagsArray,
+      tags: form.tags, // <-- MODIFIED: Already an array
       ingredients: cleanIngredients,
       instructions: cleanInstructions,
-      image_url: form.image_url, // <-- NEW
+      image_url: form.image_url,
     };
 
-    await recipeStore.savePrivateRecipe(payload);
+    await recipeStore.savePrivateRecipe(payload); // Use store
 
     $q.notify({
       color: 'positive',
@@ -310,7 +315,7 @@ const handleSubmitToGuild = async () => {
       await handleSubmit();
 
       // Then, submit it
-      await recipeStore.submitToGuild(recipeId.value);
+      await recipeStore.submitToGuild(recipeId.value); // Use store
 
       $q.notify({
         color: 'positive',
@@ -331,6 +336,7 @@ const handleSubmitToGuild = async () => {
 };
 
 onMounted(() => {
+  recipeStore.fetchTags(); // <-- NEW
   fetchRecipeForEdit();
 });
 </script>
