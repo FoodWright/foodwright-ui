@@ -6,8 +6,9 @@ export const useAuthStore = defineStore('auth', {
     user: null, // Holds { uid, email, displayName, photoURL }
     token: null, // Holds the Firebase JWT token
     isAdmin: false,
-    isSiteAdmin: false, // <-- NEW
+    isSiteAdmin: false,
     favoriteRecipeIds: [],
+    authReady: false, // <-- NEW: Flag to signal auth is ready
   }),
 
   actions: {
@@ -27,19 +28,21 @@ export const useAuthStore = defineStore('auth', {
         this.user = null;
         this.token = null;
         this.isAdmin = false;
-        this.isSiteAdmin = false; // <-- NEW
+        this.isSiteAdmin = false;
         this.favoriteRecipeIds = [];
       }
     },
+
+    setAuthReady() {
+      this.authReady = true;
+    },
+
     setAdminStatus(isAdmin) {
       this.isAdmin = !!isAdmin;
     },
-    // --- NEW ACTION for Site Admin ---
     setSiteAdminStatus(isSiteAdmin) {
       this.isSiteAdmin = !!isSiteAdmin;
     },
-    // ---
-
     setFavoriteIds(ids) {
       this.favoriteRecipeIds = ids;
     },
