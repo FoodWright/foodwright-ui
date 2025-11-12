@@ -47,8 +47,14 @@ export const useRecipeStore = defineStore('recipes', {
     submissions: [],
     cookLogs: [],
     comments: [],
+    featuredRecipes: [],
   }),
   actions: {
+    async fetchFeaturedRecipes() {
+      const data = await fetchPublic('/recipes/featured');
+      this.featuredRecipes = data || [];
+      return this.featuredRecipes;
+    },
     async fetchPendingRecipes() {
       const data = await fetchWithAuth('/admin/pending-recipes');
       this.pendingRecipes = data || [];

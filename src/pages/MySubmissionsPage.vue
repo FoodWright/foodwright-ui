@@ -59,8 +59,8 @@
             <q-btn v-if="recipe.status === 'private' || recipe.status === 'rejected'"
               :to="`/my-cookbook/private/edit/${recipe.id}`" label="Edit" color="primary" flat dense />
             <!-- Show 'View' if it's 'approved' -->
-            <q-btn v-if="recipe.status === 'approved'" :to="`/recipe/${recipe.id}`" label="View" color="primary" flat
-              dense />
+            <q-btn v-if="recipe.status === 'approved'" :to="`/recipe/${recipe.id}-${recipe.slug}`" label="View"
+              color="primary" flat dense />
             <!-- Show 'Pending' as text if pending -->
             <q-item-label v-if="recipe.status === 'pending'" caption>
               Pending Review

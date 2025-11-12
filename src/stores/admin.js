@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { useAuthStore } from './auth';
+import { useRecipeStore } from './recipes';
 
 const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
 
@@ -50,6 +51,18 @@ export const useAdminStore = defineStore('admin', {
         });
       }
       await this.fetchBadges();
+    },
+    async toggleRecipeFeature(recipeId) {
+      const data = await fetchWithAuth(`/site-admin/recipes/${recipeId}/toggle-feature`, {
+        method: 'POST',
+      });
+
+      // Optimistically update the recipe in the recipeStore
+      // This avoids a full page reload
+      const recipeStore = useRecipeStore();
+      if (recipeStore.recipe && recipeStore.recipe.id === recipeId) {
+        recipeStore.recipe.is_featured = data.is_featured;
+      }
     },
   },
 });

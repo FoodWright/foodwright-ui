@@ -119,7 +119,7 @@
             <q-item-section>
               <q-item-label>
                 Logged a cook for
-                <router-link :to="`/recipe/${log.recipe_id}`" class="text-weight-bold text-primary">
+                <router-link :to="`/recipe/${log.recipe_id}-${log.recipe_slug}`" class="text-weight-bold text-primary">
                   {{ log.recipe_title }}
                 </router-link>
               </q-item-label>

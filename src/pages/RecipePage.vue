@@ -34,6 +34,10 @@
                   " @click.prevent="toggleFavorite" class="q-ml-md">
                   <q-tooltip>{{ isFavorited ? 'Remove from Cookbook' : 'Add to Cookbook' }}</q-tooltip>
                 </q-btn>
+                <q-btn v-if="authStore.isSiteAdmin" flat round :color="recipe.is_featured ? 'positive' : 'grey'"
+                  :icon="recipe.is_featured ? 'star' : 'star_border'" @click.prevent="toggleFeature" class="q-ml-sm">
+                  <q-tooltip>{{ recipe.is_featured ? 'Remove from Featured' : 'Mark as Featured' }}</q-tooltip>
+                </q-btn>
               </div>
               <p class="text-body1 text-grey-8">{{ recipe.description }}</p>
 
@@ -261,16 +265,21 @@ import { ref, onMounted, reactive, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
+import { useAdminStore } from 'stores/admin';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 
 const route = useRoute();
 const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
+const adminStore = useAdminStore();
 const { recipe, cookLogs, comments } = storeToRefs(recipeStore);
 const $q = useQuasar();
 
-const recipeId = parseInt(route.params.id, 10);
+// const recipeId = parseInt(route.params.id, 10);
+
+const idParam = route.params.id; // "9-simple-sourdough"
+const recipeId = parseInt(idParam.split('-')[0], 10); // 9
 
 const loading = ref(false);
 const error = ref(null);
@@ -287,6 +296,24 @@ const logForm = reactive({
   notes: '',
   rating: 0,
 });
+
+const toggleFeature = async () => {
+  if (!recipe.value) return;
+  try {
+    await adminStore.toggleRecipeFeature(recipeId);
+    $q.notify({
+      color: recipe.value.is_featured ? 'positive' : 'primary',
+      message: recipe.value.is_featured ? 'Recipe marked as featured!' : 'Recipe removed from featured.',
+      icon: recipe.value.is_featured ? 'star' : 'star_border',
+    });
+  } catch (err) {
+    console.error('Failed to toggle feature:', err);
+    $q.notify({
+      color: 'negative',
+      message: `Update failed: ${err.message}`,
+    });
+  }
+};
 
 const fetchRecipe = async () => {
   loading.value = true;

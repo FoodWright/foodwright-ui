@@ -4,10 +4,12 @@ import {
   getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
+  onIdTokenChanged
 } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import { useAuthStore } from 'stores/auth';
+import { getIdToken } from 'firebase/auth';
 
 // ... (firebaseConfig remains the same) ...
 const firebaseConfig = {
@@ -39,12 +41,19 @@ export default boot(({ app, store }) => {
 
   onAuthStateChanged(firebaseAuth, async (user) => {
     console.log('Firebase auth state changed, user:', user?.uid || 'null');
-
     // Wait for setUser to complete (which includes fetching the token)
     await authStore.setUser(user);
-
     // NOW, signal to the rest of the app that auth is ready
     authStore.setAuthReady();
+  });
+
+  onIdTokenChanged(firebaseAuth, async (user) => {
+    if (user) {
+      // User is still logged in, but token has refreshed
+      console.log('Firebase ID token refreshed.');
+      const idToken = await getIdToken(user); // Get the new token
+      authStore.token = idToken; // Silently update the token in Pinia
+    }
   });
 
   app.config.globalProperties.$firebaseAuth = firebaseAuth;
