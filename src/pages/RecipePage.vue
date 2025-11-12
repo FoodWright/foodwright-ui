@@ -240,24 +240,22 @@
 import { ref, onMounted, reactive, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from 'stores/auth';
+import { useRecipeStore } from 'stores/recipes';
+import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 
 const route = useRoute();
 const authStore = useAuthStore();
+const recipeStore = useRecipeStore();
+const { recipe, cookLogs, comments } = storeToRefs(recipeStore);
 const $q = useQuasar();
 
-const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
 const recipeId = parseInt(route.params.id, 10);
 
-const recipe = ref(null);
 const loading = ref(false);
 const error = ref(null);
-
-const cookLogs = ref([]);
 const logsLoading = ref(false);
 const logsError = ref(null);
-
-const comments = ref([]);
 const commentsLoading = ref(false);
 const commentsError = ref(null);
 const newComment = ref('');
@@ -270,32 +268,11 @@ const logForm = reactive({
   rating: 0,
 });
 
-const fetchWithAuth = async (endpoint, options = {}) => {
-  const token = authStore.token;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(
-      errData.message || `Server responded with ${response.status}`
-    );
-  }
-  if (response.status === 204 || response.headers.get('content-length') === '0') return null;
-  return response.json();
-};
-
 const fetchRecipe = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const data = await fetchWithAuth(`/recipes/${recipeId}`);
-    recipe.value = data;
+    await recipeStore.fetchRecipe(recipeId);
   } catch (err) {
     error.value = err.message;
     console.error(err);
@@ -308,8 +285,7 @@ const fetchCookLogs = async () => {
   logsLoading.value = true;
   logsError.value = null;
   try {
-    const data = await fetchWithAuth(`/recipes/${recipeId}/logs`);
-    cookLogs.value = data || [];
+    await recipeStore.fetchCookLogs(recipeId);
   } catch (err) {
     logsError.value = err.message;
     console.error(err);
@@ -322,8 +298,7 @@ const fetchComments = async () => {
   commentsLoading.value = true;
   commentsError.value = null;
   try {
-    const data = await fetchWithAuth(`/recipes/${recipeId}/comments`);
-    comments.value = data || [];
+    await recipeStore.fetchComments(recipeId);
   } catch (err) {
     commentsError.value = err.message;
     console.error(err);
@@ -348,12 +323,9 @@ const openLogDialog = () => {
 const handleLogSubmit = async () => {
   isSubmitting.value = true;
   try {
-    const response = await fetchWithAuth(`/recipes/${recipeId}/log`, {
-      method: 'POST',
-      body: JSON.stringify({
-        notes: logForm.notes,
-        rating: logForm.rating > 0 ? logForm.rating : null,
-      }),
+    const response = await recipeStore.logCook(recipeId, {
+      notes: logForm.notes,
+      rating: logForm.rating > 0 ? logForm.rating : null,
     });
     $q.notify({
       color: 'positive',
@@ -379,7 +351,6 @@ const handleLogSubmit = async () => {
       });
     }
     showLogDialog.value = false;
-    await fetchCookLogs();
   } catch (err) {
     console.error('Failed to log cook:', err);
     $q.notify({
@@ -395,13 +366,7 @@ const handleCommentSubmit = async () => {
   if (newComment.value.trim() === '') return;
   isSubmittingComment.value = true;
   try {
-    const newCommentData = await fetchWithAuth(`/recipes/${recipeId}/comments`, {
-      method: 'POST',
-      body: JSON.stringify({
-        comment: newComment.value,
-      }),
-    });
-    comments.value.unshift(newCommentData);
+    await recipeStore.postComment(recipeId, newComment.value);
     newComment.value = '';
   } catch (err) {
     console.error('Failed to post comment:', err);
@@ -446,20 +411,16 @@ const toggleFavorite = async () => {
     return;
   }
 
-  // --- FIX: Typo alrdyFavorited -> alreadyFavorited ---
   const alreadyFavorited = isFavorited.value;
   try {
+    await recipeStore.toggleFavorite(recipeId);
     if (alreadyFavorited) {
-      authStore.removeFavoriteId(recipeId);
-      await fetchWithAuth(`/recipes/${recipeId}/favorite`, { method: 'DELETE' });
       $q.notify({
         color: 'primary',
         message: 'Removed from cookbook',
         icon: 'bookmark_remove'
       });
     } else {
-      authStore.addFavoriteId(recipeId);
-      await fetchWithAuth(`/recipes/${recipeId}/favorite`, { method: 'POST' });
       $q.notify({
         color: 'positive',
         message: 'Added to cookbook!',
@@ -472,11 +433,6 @@ const toggleFavorite = async () => {
       color: 'negative',
       message: `Failed to update cookbook: ${err.message}`,
     });
-    if (alreadyFavorited) {
-      authStore.addFavoriteId(recipeId);
-    } else {
-      authStore.removeFavoriteId(recipeId);
-    }
   }
 };
 

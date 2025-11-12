@@ -62,13 +62,14 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import { useAuthStore } from 'stores/auth';
+import { useAdminStore } from 'stores/admin';
+import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 
-const authStore = useAuthStore();
+const adminStore = useAdminStore();
+const { badges } = storeToRefs(adminStore);
 const $q = useQuasar();
 
-const badges = ref([]);
 const loading = ref(false);
 const error = ref(null);
 const showDialog = ref(false);
@@ -95,34 +96,11 @@ const columns = [
   { name: 'actions', label: 'Actions', field: 'actions', align: 'center' },
 ];
 
-// --- API Fetch Helper ---
-const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
-const fetchWithAuth = async (endpoint, options = {}) => {
-  const token = authStore.token;
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.message || `Server responded with ${response.status}`);
-  }
-
-  if (response.status === 204 || response.headers.get('content-length') === '0') return null;
-  return response.json();
-};
-// --- End API Helper ---
-
 const fetchBadges = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const data = await fetchWithAuth('/site-admin/badges');
-    badges.value = data.map(b => ({
-      ...b,
-      // Handle the null string from DB for form binding
-      icon_url: b.icon_url.Valid ? b.icon_url.String : ''
-    })) || [];
+    await adminStore.fetchBadges();
   } catch (err) {
     error.value = err.message;
     console.error(err);
@@ -168,29 +146,16 @@ const handleSubmit = async () => {
 
   // Prepare payload
   const payload = {
+    id: editId.value,
     ...form,
     start_date: form.start_date || null,
     end_date: form.end_date || null,
   };
 
   try {
-    if (isEditMode.value) {
-      // Update
-      await fetchWithAuth(`/site-admin/badges/${editId.value}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      });
-      $q.notify({ color: 'positive', message: 'Badge updated!' });
-    } else {
-      // Create
-      await fetchWithAuth('/site-admin/badges', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      $q.notify({ color: 'positive', message: 'Badge created!' });
-    }
+    await adminStore.saveBadge(payload);
+    $q.notify({ color: 'positive', message: `Badge ${isEditMode.value ? 'updated' : 'created'}!` });
     showDialog.value = false;
-    await fetchBadges(); // Refresh the table
   } catch (err) {
     console.error('Failed to save badge:', err);
     $q.notify({ color: 'negative', message: `Failed to save badge: ${err.message}` });

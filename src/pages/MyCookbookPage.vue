@@ -125,60 +125,26 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
 import { useAuthStore } from 'stores/auth';
+import { useRecipeStore } from 'stores/recipes';
+import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
-import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
+const recipeStore = useRecipeStore();
+const { favorites, privateRecipes } = storeToRefs(recipeStore);
+
 const $q = useQuasar();
-const router = useRouter();
 
 const tab = ref('favorites');
 
-const favorites = ref([]);
-const privateRecipes = ref([]);
 const loading = reactive({ favorites: false, private: false });
 const error = reactive({ favorites: null, private: null });
 
-// --- API Fetch Helper ---
-const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
-const fetchWithAuth = async (endpoint, options = {}) => {
-  const token = authStore.token;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-  if (!response.ok) {
-    if (response.status === 401) {
-      $q.notify({
-        color: 'negative',
-        message: 'Your session has expired. Please log in again.',
-      });
-      authStore.setUser(null);
-      router.push('/');
-    }
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(
-      errData.message || `Server responded with ${response.status}`
-    );
-  }
-  if (response.status === 200 && response.headers.get('content-length') === '0') {
-    return null;
-  }
-  if (response.status === 204) return null;
-
-  return response.json();
-};
-// --- End API Helper ---
-
-// --- Favorites Tab Functions ---
 const fetchMyCookbook = async () => {
   loading.favorites = true;
   error.favorites = null;
   try {
-    const data = await fetchWithAuth('/my-cookbook');
-    favorites.value = data || [];
+    await recipeStore.fetchMyCookbook();
   } catch (err) {
     error.favorites = err.message;
     console.error(err);
@@ -190,10 +156,7 @@ const fetchMyCookbook = async () => {
 const toggleFavorite = async (recipeId) => {
   if (!authStore.user) return;
   try {
-    // This page only shows favorites, so we always remove
-    favorites.value = favorites.value.filter((r) => r.id !== recipeId);
-    authStore.removeFavoriteId(recipeId);
-    await fetchWithAuth(`/recipes/${recipeId}/favorite`, { method: 'DELETE' });
+    await recipeStore.toggleFavorite(recipeId);
     $q.notify({
       color: 'primary',
       message: 'Removed from cookbook',
@@ -205,18 +168,15 @@ const toggleFavorite = async (recipeId) => {
       color: 'negative',
       message: `Failed to remove favorite: ${err.message}`,
     });
-    // Add it back on failure
-    fetchMyCookbook();
+    fetchMyCookbook(); // Refetch on error
   }
 };
 
-// --- Private Recipes Tab Functions ---
 const fetchMyPrivateRecipes = async () => {
   loading.private = true;
   error.private = null;
   try {
-    const data = await fetchWithAuth('/my-private-recipes');
-    privateRecipes.value = data || [];
+    await recipeStore.fetchMyPrivateRecipes();
   } catch (err) {
     error.private = err.message;
     console.error(err);
@@ -242,8 +202,7 @@ const confirmDelete = (recipe) => {
 
 const deletePrivateRecipe = async (recipeId) => {
   try {
-    await fetchWithAuth(`/recipes/private/${recipeId}`, { method: 'DELETE' });
-    privateRecipes.value = privateRecipes.value.filter(r => r.id !== recipeId);
+    await recipeStore.deletePrivateRecipe(recipeId);
     $q.notify({
       color: 'positive',
       message: 'Private recipe deleted.'
@@ -257,8 +216,6 @@ const deletePrivateRecipe = async (recipeId) => {
   }
 };
 
-
-// --- Lifecycle ---
 onMounted(() => {
   if (authStore.user) {
     fetchMyCookbook();

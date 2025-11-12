@@ -100,6 +100,7 @@
 <script setup>
 import { reactive, ref, getCurrentInstance } from 'vue';
 import { useAuthStore } from 'stores/auth';
+import { useRecipeStore } from 'stores/recipes';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
 import {
@@ -109,6 +110,7 @@ import {
 } from 'firebase/storage';
 
 const authStore = useAuthStore();
+const recipeStore = useRecipeStore();
 const $q = useQuasar();
 const router = useRouter();
 
@@ -142,27 +144,6 @@ const addInstruction = () => {
 const removeInstruction = (index) => {
   form.instructions.splice(index, 1);
 };
-
-
-// --- API Fetch Helper ---
-const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
-const fetchWithAuth = async (endpoint, options = {}) => {
-  const token = authStore.token;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(
-      errData.message || `Server responded with ${response.status}`
-    );
-  }
-  return response.json();
-};
-// --- End API Helper ---
 
 // --- NEW: Firebase Uploader Functions ---
 const handleFileUpload = (file) => {
@@ -238,10 +219,7 @@ const handleSubmit = async () => {
       image_url: form.image_url, // <-- NEW
     };
 
-    await fetchWithAuth('/recipes', {
-      method: 'POST',
-      body: JSON.stringify(newRecipe),
-    });
+    await recipeStore.submitRecipe(newRecipe);
 
     $q.notify({
       color: 'positive',

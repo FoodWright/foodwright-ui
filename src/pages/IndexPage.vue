@@ -20,7 +20,7 @@
                 Your Rank:
                 <span class="text-weight-bold text-primary">{{
                   guildProfile.rank
-                  }}</span>
+                }}</span>
               </div>
             </div>
 
@@ -158,20 +158,22 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useAuthStore } from 'stores/auth';
+import { useRecipeStore } from 'stores/recipes';
+import { useUserStore } from 'stores/user';
+import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
-import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
+const recipeStore = useRecipeStore();
+const userStore = useUserStore();
+
+const { recipes, tags: availableTags } = storeToRefs(recipeStore);
+const { profile: guildProfile } = storeToRefs(userStore);
+
 const $q = useQuasar();
-const router = useRouter();
 
-// const API_URL = 'http://localhost:8080/api';
-const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
-
-const recipes = ref([]);
 const loading = ref(false);
 const error = ref(null);
-const availableTags = ref([]);
 
 const searchQuery = ref('');
 const selectedTags = ref([]);
@@ -179,50 +181,22 @@ const currentPage = ref(1);
 const totalPages = ref(1);
 
 const favoritesLoaded = ref(false);
-const guildProfile = ref(null);
-
-const fetchWithAuth = async (endpoint, options = {}) => {
-  const token = authStore.token;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-  if (!response.ok) {
-    if (response.status === 401) {
-      $q.notify({
-        color: 'negative',
-        message: 'Your session has expired. Please log in again.',
-      });
-      authStore.setUser(null);
-      router.push('/');
-    }
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(
-      errData.message || `Server responded with ${response.status}`
-    );
-  }
-  if (response.status === 204 || response.headers.get('content-length') === '0') return null;
-  return response.json();
-};
 
 const fetchRecipes = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const params = new URLSearchParams();
+    const params = {
+      page: currentPage.value,
+    };
     if (searchQuery.value) {
-      params.append('search', searchQuery.value);
+      params.search = searchQuery.value;
     }
     if (selectedTags.value.length > 0) {
-      params.append('tags', selectedTags.value.join(','));
+      params.tags = selectedTags.value.join(',');
     }
-    params.append('page', currentPage.value);
 
-    const data = await fetchWithAuth(`/recipes?${params.toString()}`);
-
-    recipes.value = data.recipes || [];
+    const data = await recipeStore.fetchRecipes(params);
     totalPages.value = data.total_pages || 1;
     currentPage.value = data.current_page || 1;
   } catch (err) {
@@ -235,8 +209,7 @@ const fetchRecipes = async () => {
 
 const fetchTags = async () => {
   try {
-    const data = await fetchWithAuth('/tags');
-    availableTags.value = data || [];
+    await recipeStore.fetchTags();
   } catch (err) {
     console.error('Failed to fetch tags:', err);
   }
@@ -245,13 +218,7 @@ const fetchTags = async () => {
 const fetchProfileAndFavorites = async () => {
   if (!authStore.user) return;
   try {
-    const profile = await fetchWithAuth('/profile');
-    guildProfile.value = profile;
-    authStore.setAdminStatus(profile.is_admin);
-    authStore.setSiteAdminStatus(profile.is_site_admin);
-
-    const favoriteIds = await fetchWithAuth('/my-favorite-ids');
-    authStore.setFavoriteIds(favoriteIds || []);
+    await userStore.fetchProfileAndFavorites();
     favoritesLoaded.value = true;
   } catch (err) {
     console.error('Failed to fetch profile/favorites:', err);
@@ -284,17 +251,14 @@ const toggleFavorite = async (recipeId) => {
   const alreadyFavorited = isFavorited(recipeId);
 
   try {
+    await recipeStore.toggleFavorite(recipeId);
     if (alreadyFavorited) {
-      authStore.removeFavoriteId(recipeId);
-      await fetchWithAuth(`/recipes/${recipeId}/favorite`, { method: 'DELETE' });
       $q.notify({
         color: 'primary',
         message: 'Removed from cookbook',
         icon: 'bookmark_remove'
       });
     } else {
-      authStore.addFavoriteId(recipeId);
-      await fetchWithAuth(`/recipes/${recipeId}/favorite`, { method: 'POST' });
       $q.notify({
         color: 'positive',
         message: 'Added to cookbook!',
@@ -307,11 +271,6 @@ const toggleFavorite = async (recipeId) => {
       color: 'negative',
       message: `Failed to update cookbook: ${err.message}`,
     });
-    if (alreadyFavorited) {
-      authStore.addFavoriteId(recipeId);
-    } else {
-      authStore.removeFavoriteId(recipeId);
-    }
   }
 };
 
@@ -339,10 +298,9 @@ watch(() => authStore.user, (newUser) => {
     fetchProfileAndFavorites();
   } else {
     favoritesLoaded.value = false;
-    guildProfile.value = null;
+    userStore.profile = null;
   }
 });
-
 </script>
 
 <style scoped>

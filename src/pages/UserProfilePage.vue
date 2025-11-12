@@ -147,35 +147,23 @@
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { useUserStore } from 'stores/user';
+import { storeToRefs } from 'pinia';
 
 const route = useRoute();
+const userStore = useUserStore();
+const { profile, logs } = storeToRefs(userStore);
 
-const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
 const userId = ref(route.params.id);
 
-const profile = ref(null);
-const logs = ref([]);
 const loading = reactive({ profile: false, logs: false });
 const error = reactive({ profile: null, logs: null });
-
-const fetchPublic = async (endpoint) => {
-  const response = await fetch(`${API_URL}${endpoint}`);
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(
-      errData.message || `Server responded with ${response.status}`
-    );
-  }
-  return response.json();
-};
 
 const fetchProfile = async (id) => {
   loading.profile = true;
   error.profile = null;
-  profile.value = null;
   try {
-    const data = await fetchPublic(`/profile/${id}`);
-    profile.value = data;
+    await userStore.fetchPublicProfile(id);
   } catch (err) {
     error.profile = err.message;
     console.error(err);
@@ -187,10 +175,8 @@ const fetchProfile = async (id) => {
 const fetchLogs = async (id) => {
   loading.logs = true;
   error.logs = null;
-  logs.value = [];
   try {
-    const data = await fetchPublic(`/profile/${id}/logs`);
-    logs.value = data || [];
+    await userStore.fetchUserLogs(id);
   } catch (err) {
     error.logs = err.message;
     console.error(err);
