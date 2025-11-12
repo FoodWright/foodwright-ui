@@ -20,7 +20,7 @@
                 Your Rank:
                 <span class="text-weight-bold text-primary">{{
                   guildProfile.rank
-                }}</span>
+                  }}</span>
               </div>
             </div>
 
@@ -196,6 +196,7 @@ const fetchRecipes = async () => {
       params.tags = selectedTags.value.join(',');
     }
 
+    // --- FIX: Use the fetchPublic helper ---
     const data = await recipeStore.fetchRecipes(params);
     totalPages.value = data.total_pages || 1;
     currentPage.value = data.current_page || 1;
@@ -209,6 +210,7 @@ const fetchRecipes = async () => {
 
 const fetchTags = async () => {
   try {
+    // --- FIX: Use the fetchTags action ---
     await recipeStore.fetchTags();
   } catch (err) {
     console.error('Failed to fetch tags:', err);
@@ -222,7 +224,9 @@ const fetchProfileAndFavorites = async () => {
     favoritesLoaded.value = true;
   } catch (err) {
     console.error('Failed to fetch profile/favorites:', err);
-    error.value = err.message;
+    // Don't show auth error on the main recipe feed
+    // error.value = err.message;
+    $q.notify({ color: 'negative', message: 'Could not load your profile.' })
   }
 };
 
@@ -284,23 +288,33 @@ watch(currentPage, () => {
 });
 
 onMounted(() => {
+  // Public calls can fire immediately
   fetchRecipes();
   fetchTags();
-  if (authStore.user) {
-    console.log('User already logged in on mount, fetching profile & faves.');
-    fetchProfileAndFavorites();
-  }
+
+  // --- MODIFICATION ---
+  // We no longer check authStore.user here.
+  // We *only* rely on the authReady watcher.
 });
 
-watch(() => authStore.user, (newUser) => {
-  if (newUser) {
-    console.log('User logged in, fetching profile & faves.');
-    fetchProfileAndFavorites();
-  } else {
-    favoritesLoaded.value = false;
-    userStore.profile = null;
-  }
-});
+// --- MODIFICATION: This watcher is now the source of truth for auth calls ---
+watch(
+  () => authStore.authReady,
+  (isReady) => {
+    if (isReady && authStore.user) {
+      // Auth is fully initialized, token is ready, and we have a user.
+      // NOW it's safe to fetch private data.
+      console.log('Auth is ready and user is present. Fetching profile.');
+      fetchProfileAndFavorites();
+    } else if (isReady) {
+      // Auth is ready, but user is null (logged out)
+      console.log('Auth is ready, but no user.');
+      favoritesLoaded.value = false;
+      userStore.profile = null;
+    }
+  },
+  { immediate: true } // Run this logic once on component load
+);
 </script>
 
 <style scoped>

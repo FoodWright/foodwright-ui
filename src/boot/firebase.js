@@ -7,9 +7,9 @@ import {
 } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
-import { useAuthStore } from 'stores/auth'; // Assumes `stores` is aliased in jsconfig.json/quasar.config.js
+import { useAuthStore } from 'stores/auth';
 
-// !! IMPORTANT: Replace with your actual Firebase config
+// ... (firebaseConfig remains the same) ...
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -17,9 +17,8 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-}
+};
 
-// Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig);
 const firebaseAuth = getAuth(firebaseApp);
 const firebaseStorage = getStorage(firebaseApp);
@@ -33,24 +32,21 @@ if (location.hostname === "localhost") {
 
 initializeAppCheck(firebaseApp, {
   provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITEKEY)
-})
+});
 
-// This boot file runs once
 export default boot(({ app, store }) => {
   const authStore = useAuthStore(store);
 
-  // Set up the onAuthStateChanged listener
-  // This runs when the app loads and any time the auth state changes
-  onAuthStateChanged(firebaseAuth, (user) => {
+  onAuthStateChanged(firebaseAuth, async (user) => {
     console.log('Firebase auth state changed, user:', user?.uid || 'null');
-    // Use the Pinia store to set the user
-    // This will automatically fetch and store the token
-    authStore.setUser(user);
+
+    // Wait for setUser to complete (which includes fetching the token)
+    await authStore.setUser(user);
+
+    // NOW, signal to the rest of the app that auth is ready
+    authStore.setAuthReady();
   });
 
-  // Inject Firebase services into all Vue components
-  // for easy access via `this.$firebaseAuth` (Options API)
-  // or `proxy.$firebaseAuth` (Composition API)
   app.config.globalProperties.$firebaseAuth = firebaseAuth;
   app.config.globalProperties.$googleProvider = googleProvider;
   app.config.globalProperties.$firebaseStorage = firebaseStorage;
