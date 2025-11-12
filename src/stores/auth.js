@@ -15,7 +15,7 @@ export const useAuthStore = defineStore('auth', {
     async setUser(firebaseUser) {
       if (firebaseUser) {
         // User is logged in
-        const idToken = await getIdToken(firebaseUser, /* forceRefresh */ true);
+        const idToken = await getIdToken(firebaseUser);
         this.token = idToken;
         this.user = {
           uid: firebaseUser.uid,

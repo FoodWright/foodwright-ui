@@ -45,7 +45,7 @@
         <div v-else class="row q-col-gutter-md">
           <div v-for="recipe in favorites" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
             <q-card class="recipe-card full-height" flat bordered>
-              <router-link :to="`/recipe/${recipe.id}`" class="recipe-link">
+              <router-link :to="`/recipe/${recipe.id}-${recipe.slug}`" class="recipe-link">
                 <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
                 <q-card-section class="q-pa-sm q-pb-none" v-else>
                   <q-img :ratio="16 / 9" class="bg-grey-2" />
@@ -96,7 +96,7 @@
         <div v-else class="row q-col-gutter-md">
           <div v-for="recipe in privateRecipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
             <q-card class="recipe-card full-height" flat bordered>
-              <router-link :to="`/recipe/${recipe.id}`" class="recipe-link">
+              <router-link :to="`/recipe/${recipe.id}-${recipe.slug}`" class="recipe-link">
                 <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
                 <q-card-section class="q-pa-sm q-pb-none" v-else>
                   <q-img :ratio="16 / 9" class="bg-grey-2" />

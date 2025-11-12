@@ -20,7 +20,7 @@
                 Your Rank:
                 <span class="text-weight-bold text-primary">{{
                   guildProfile.rank
-                  }}</span>
+                }}</span>
               </div>
             </div>
 
@@ -59,6 +59,58 @@
         </q-card-section>
       </q-card>
       <!-- === End Guild Card === -->
+
+      <div v-if="featuredRecipes.length > 0" class="q-mb-md">
+        <h4 class="text-h4 q-mt-none q-mb-md">Featured Recipes</h4>
+        <div class="row q-col-gutter-md">
+          <div v-for="recipe in featuredRecipes" :key="recipe.id" class="col-12 col-md-6">
+            <router-link :to="`/recipe/${recipe.id}-${recipe.slug}`" class="recipe-link">
+              <q-card class="recipe-card full-height" flat bordered>
+                <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
+                <q-card-section class="q-pa-sm q-pb-none" v-else>
+                  <q-img :ratio="16 / 9" class="bg-grey-2">
+                    <div class="absolute-center text-grey-6 text-center">
+                      <q-icon name="image" size="2em" />
+                      <div class="text-caption">No Image</div>
+                    </div>
+                  </q-img>
+                </q-card-section>
+
+                <q-card-section class="q-pt-sm relative-position">
+                  <q-btn v-if="authStore.user && favoritesLoaded" flat round
+                    :color="isFavorited(recipe.id) ? 'primary' : 'grey'" :icon="isFavorited(recipe.id) ? 'bookmark' : 'bookmark_border'
+                      " @click.prevent="toggleFavorite(recipe.id)" class="absolute-top-right"
+                    style="top: 8px; right: 0px" />
+
+                  <div class="row justify-between no-wrap items-center q-pr-xl">
+                    <div class="text-h6 ellipsis">{{ recipe.title }}</div>
+                    <q-chip color="accent" text-color="white" :label="recipe.xp + ' XP'" size="sm" class="q-ml-sm" />
+                  </div>
+                  <p class="text-grey-8 ellipsis-3-lines q-mt-xs">
+                    {{ recipe.description }}
+                  </p>
+
+                  <div class="q-mt-sm" v-if="recipe.cook_count > 0">
+                    <q-rating :model-value="recipe.avg_rating" size="xs" color="orange" icon="star" readonly />
+                    <span class="text-caption text-grey-7 q-ml-xs">
+                      ({{ recipe.cook_count }}
+                      {{ recipe.cook_count === 1 ? 'review' : 'reviews' }})
+                    </span>
+                  </div>
+                  <div class="q-mt-sm text-caption text-grey-6" v-else>
+                    No reviews yet
+                  </div>
+                </q-card-section>
+              </q-card>
+            </router-link>
+          </div>
+        </div>
+        <q-separator class="q-my-lg" />
+      </div>
+      <div class="row q-col-gutter-md">
+        <div v-for="recipe in filteredRecipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
+        </div>
+      </div>
 
       <!-- Search and Filter Controls -->
       <div class="row q-col-gutter-md q-mb-md">
@@ -109,7 +161,7 @@
       <!-- Recipe List -->
       <div class="row q-col-gutter-md">
         <div v-for="recipe in recipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
-          <router-link :to="`/recipe/${recipe.id}`" class="recipe-link">
+          <router-link :to="`/recipe/${recipe.id}-${recipe.slug}`" class="recipe-link">
             <q-card class="recipe-card full-height" flat bordered>
               <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
               <q-card-section class="q-pa-sm q-pb-none" v-else>
@@ -162,7 +214,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
 import { useUserStore } from 'stores/user';
@@ -173,7 +225,7 @@ const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
 const userStore = useUserStore();
 
-const { recipes, tags: availableTags } = storeToRefs(recipeStore);
+const { recipes, tags: availableTags, featuredRecipes } = storeToRefs(recipeStore);
 const { profile: guildProfile } = storeToRefs(userStore);
 
 const $q = useQuasar();
@@ -187,6 +239,16 @@ const currentPage = ref(1);
 const totalPages = ref(1);
 
 const favoritesLoaded = ref(false);
+
+// --- NEW: Computed prop for featured IDs ---
+const featuredRecipeIds = computed(() =>
+  featuredRecipes.value.map(r => r.id)
+);
+
+// --- NEW: Computed prop to filter main list ---
+const filteredRecipes = computed(() =>
+  recipes.value.filter(r => !featuredRecipeIds.value.includes(r.id))
+);
 
 const fetchRecipes = async () => {
   loading.value = true;
@@ -292,6 +354,7 @@ watch(currentPage, () => {
 onMounted(() => {
   fetchRecipes();
   fetchTags();
+  recipeStore.fetchFeaturedRecipes();
 });
 
 watch(
