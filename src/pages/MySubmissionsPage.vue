@@ -21,7 +21,7 @@
     </div>
 
     <!-- No Submissions Message -->
-    <div v-if="recipes.length === 0 && !loading" class="text-center q-pa-xl">
+    <div v-if="submissions.length === 0 && !loading" class="text-center q-pa-xl">
       <q-icon name="file_upload_off" size="3em" class="text-grey-5 q-mb-sm" />
       <div class="text-h6 text-grey-7">No submissions yet.</div>
       <p class="q-mt-sm">
@@ -32,7 +32,7 @@
 
     <!-- Submissions List -->
     <div v-else class="row q-col-gutter-md">
-      <div v-for="recipe in recipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
+      <div v-for="recipe in submissions" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
         <q-card class="recipe-card full-height" flat bordered>
           <!-- === NEW: Display Image === -->
           <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
@@ -75,41 +75,21 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from 'stores/auth';
-// import { useQuasar } from 'quasar';
+import { useRecipeStore } from 'stores/recipes';
+import { storeToRefs } from 'pinia';
 
 const authStore = useAuthStore();
-// const $q = useQuasar();
+const recipeStore = useRecipeStore();
+const { submissions } = storeToRefs(recipeStore);
 
-const recipes = ref([]);
 const loading = ref(false);
 const error = ref(null);
-
-// --- API Fetch Helper ---
-const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
-const fetchWithAuth = async (endpoint, options = {}) => {
-  const token = authStore.token;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(
-      errData.message || `Server responded with ${response.status}`
-    );
-  }
-  return response.json();
-};
-// --- End API Helper ---
 
 const fetchMySubmissions = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const data = await fetchWithAuth('/recipes/my-submissions');
-    recipes.value = data || [];
+    await recipeStore.fetchMySubmissions();
   } catch (err) {
     error.value = err.message;
     console.error(err);

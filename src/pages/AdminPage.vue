@@ -49,7 +49,7 @@
                 Submitted by:
                 <span class="text-weight-bold">{{
                   recipe.submitted_by_username.String || 'Unknown User'
-                }}</span>
+                  }}</span>
               </div>
               <div class="text-h6">{{ recipe.title }}</div>
               <p class="text-body2 text-grey-8">{{ recipe.description }}</p>
@@ -88,7 +88,7 @@
                       <q-item-section>
                         <q-item-label class="text-body2">{{
                           item.step
-                        }}</q-item-label>
+                          }}</q-item-label>
                       </q-item-section>
                     </q-item>
                   </q-list>
@@ -114,43 +114,23 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import { useAuthStore } from 'stores/auth';
+import { useRecipeStore } from 'stores/recipes';
+import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 
-const authStore = useAuthStore();
 const $q = useQuasar();
+const recipeStore = useRecipeStore();
 
-const pendingRecipes = ref([]);
+const { pendingRecipes } = storeToRefs(recipeStore);
 const loading = ref(false);
 const error = ref(null);
 const actionLoading = reactive({}); // Track loading state for each button
-
-// --- API Fetch Helper ---
-const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
-const fetchWithAuth = async (endpoint, options = {}) => {
-  const token = authStore.token;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(
-      errData.message || `Server responded with ${response.status}`
-    );
-  }
-  return response.json();
-};
-// --- End API Helper ---
 
 const fetchPendingRecipes = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const data = await fetchWithAuth('/admin/pending-recipes');
-    pendingRecipes.value = data || [];
+    await recipeStore.fetchPendingRecipes();
   } catch (err) {
     error.value = err.message;
     console.error(err);
@@ -162,13 +142,11 @@ const fetchPendingRecipes = async () => {
 const approveRecipe = async (id) => {
   actionLoading[id] = true;
   try {
-    await fetchWithAuth(`/admin/recipes/${id}/approve`, { method: 'POST' });
+    await recipeStore.approveRecipe(id);
     $q.notify({
       color: 'positive',
       message: 'Recipe approved! XP and badge awarded to user.',
     });
-    // Remove from list
-    pendingRecipes.value = pendingRecipes.value.filter((r) => r.id !== id);
   } catch (err) {
     console.error('Failed to approve recipe:', err);
     $q.notify({
@@ -183,13 +161,11 @@ const approveRecipe = async (id) => {
 const rejectRecipe = async (id) => {
   actionLoading[id] = true;
   try {
-    await fetchWithAuth(`/admin/recipes/${id}/reject`, { method: 'POST' });
+    await recipeStore.rejectRecipe(id);
     $q.notify({
       color: 'negative',
       message: 'Recipe rejected.',
     });
-    // Remove from list
-    pendingRecipes.value = pendingRecipes.value.filter((r) => r.id !== id);
   } catch (err) {
     console.error('Failed to reject recipe:', err);
     $q.notify({

@@ -122,6 +122,7 @@
 <script setup>
 import { reactive, ref, onMounted, computed, getCurrentInstance } from 'vue';
 import { useAuthStore } from 'stores/auth';
+import { useRecipeStore } from 'stores/recipes';
 import { useQuasar } from 'quasar';
 import { useRouter, useRoute } from 'vue-router';
 import {
@@ -131,6 +132,7 @@ import {
 } from 'firebase/storage';
 
 const authStore = useAuthStore();
+const recipeStore = useRecipeStore();
 const $q = useQuasar();
 const router = useRouter();
 const route = useRoute();
@@ -172,31 +174,6 @@ const addInstruction = () => {
 const removeInstruction = (index) => {
   form.instructions.splice(index, 1);
 };
-
-
-// --- API Fetch Helper ---
-const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
-const fetchWithAuth = async (endpoint, options = {}) => {
-  const token = authStore.token;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(
-      errData.message || `Server responded with ${response.status}`
-    );
-  }
-  const contentType = response.headers.get("content-type");
-  if (contentType && contentType.indexOf("application/json") !== -1) {
-    return response.json();
-  }
-  return null;
-};
-// --- End API Helper ---
 
 // --- NEW: Firebase Uploader Functions ---
 const handleFileUpload = (file) => {
@@ -251,7 +228,7 @@ const fetchRecipeForEdit = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const recipe = await fetchWithAuth(`/recipes/${recipeId.value}`);
+    const recipe = await recipeStore.fetchRecipe(recipeId.value);
     if (recipe.submitted_by_user_id.String !== authStore.user.uid) {
       throw new Error("You do not have permission to edit this recipe.");
     }
@@ -288,6 +265,7 @@ const handleSubmit = async () => {
     const cleanInstructions = form.instructions.filter(i => i.step && i.step.trim() !== '');
 
     const payload = {
+      id: recipeId.value,
       title: form.title,
       description: form.description,
       tags: tagsArray,
@@ -296,27 +274,13 @@ const handleSubmit = async () => {
       image_url: form.image_url, // <-- NEW
     };
 
-    if (isEditMode.value) {
-      // --- UPDATE (PUT) ---
-      await fetchWithAuth(`/recipes/private/${recipeId.value}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      });
-      $q.notify({
-        color: 'positive',
-        message: 'Recipe updated!',
-      });
-    } else {
-      // --- CREATE (POST) ---
-      await fetchWithAuth('/recipes/private', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      $q.notify({
-        color: 'positive',
-        message: 'Recipe saved to your private cookbook!',
-      });
-    }
+    await recipeStore.savePrivateRecipe(payload);
+
+    $q.notify({
+      color: 'positive',
+      message: isEditMode.value ? 'Recipe updated!' : 'Recipe saved to your private cookbook!',
+    });
+
     router.push('/my-cookbook?tab=private');
   } catch (err) {
     console.error('Failed to save recipe:', err);
@@ -346,9 +310,7 @@ const handleSubmitToGuild = async () => {
       await handleSubmit();
 
       // Then, submit it
-      await fetchWithAuth(`/recipes/private/${recipeId.value}/submit`, {
-        method: 'POST',
-      });
+      await recipeStore.submitToGuild(recipeId.value);
 
       $q.notify({
         color: 'positive',
