@@ -78,7 +78,7 @@
 
           <div v-for="(ingredient, index) in form.ingredients" :key="index"
             class="row items-center q-gutter-sm q-mb-sm">
-            <q-input v-model="ingredient.quantity" label="Quantity (e.g. 1 cup)" outlined dense class="col" />
+
             <!-- Case 1: Ingredient -->
             <template v-if="ingredient.type === 'ingredient' || !ingredient.type">
               <!-- Added !ingredient.type for backward compatibility before migration -->
