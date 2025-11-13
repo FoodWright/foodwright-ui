@@ -1,0 +1,31 @@
+{
+  "name": "foodwright-ui",
+  "compatibility_date": "2025-10-28",
+
+  /**
+   * This is the new, required part.
+   * It tells Wrangler to run the code in 'src/index.js'
+   * for every request, instead of just serving static files.
+   */
+  //   "main": "src/index.js",
+
+  /**
+   * This section tells the 'src/index.js' script
+   * where to find your static files (your Quasar app).
+   * The 'bucket' key points to your build output directory.
+   */
+  "assets": {
+    "directory": "./dist/spa",
+    "not_found_handling": "single-page-application",
+  },
+
+  /**
+   * This defines your production route.
+   */
+  "routes": [
+    {
+      "pattern": "foodwright.com/*",
+      "zone_name": "foodwright",
+    },
+  ],
+}
