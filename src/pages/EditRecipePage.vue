@@ -67,13 +67,30 @@
         <q-card-section>
           <div class="row items-center justify-between q-mb-sm">
             <div class="text-h6">Ingredients</div>
-            <q-btn label="Add Ingredient" @click="addIngredient" color="primary" flat icon="add" />
+            <div>
+              <!-- === MODIFIED: Added two buttons === -->
+              <q-btn label="Add Header" @click="addHeader" color="grey-7" flat icon="title" dense>
+                <q-tooltip>Add a section header (e.g. "Filling")</q-tooltip>
+              </q-btn>
+              <q-btn label="Add Ingredient" @click="addIngredient" color="primary" flat icon="add" dense />
+            </div>
           </div>
 
           <div v-for="(ingredient, index) in form.ingredients" :key="index"
             class="row items-center q-gutter-sm q-mb-sm">
             <q-input v-model="ingredient.quantity" label="Quantity (e.g. 1 cup)" outlined dense class="col" />
-            <q-input v-model="ingredient.name" label="Name (e.g. Flour)" outlined dense class="col-6" />
+            <!-- Case 1: Ingredient -->
+            <template v-if="ingredient.type === 'ingredient' || !ingredient.type">
+              <!-- Added !ingredient.type for backward compatibility before migration -->
+              <q-input v-model="ingredient.quantity" label="Quantity (e.g. 1 cup)" outlined dense class="col" />
+              <q-input v-model="ingredient.name" label="Name (e.g. Flour)" outlined dense class="col-6" />
+            </template>
+
+            <!-- Case 2: Header -->
+            <template v-if="ingredient.type === 'header'">
+              <q-input v-model="ingredient.name" label="Section Header (e.g. Filling)" outlined dense class="col"
+                input-class="text-weight-bold text-primary" />
+            </template>
             <q-btn @click="removeIngredient(index)" flat round dense color="negative" icon="remove_circle_outline" />
           </div>
           <div v-if="form.ingredients.length === 0" class="text-grey-7 q-pa-md text-center">
@@ -154,7 +171,7 @@ const isEditMode = computed(() => !!recipeId.value);
 const form = reactive({
   title: '',
   description: '',
-  tags: [], // <-- MODIFIED: Now an array
+  tags: [],
   xp: 0,
   status: 'private',
   ingredients: [],
@@ -164,7 +181,7 @@ const form = reactive({
 
 // ... (ingredients/instructions functions are unchanged) ...
 const addIngredient = () => {
-  form.ingredients.push({ quantity: '', name: '' });
+  form.ingredients.push({ type: 'ingredient', quantity: '', name: '' });
 };
 const removeIngredient = (index) => {
   form.ingredients.splice(index, 1);
@@ -174,6 +191,10 @@ const addInstruction = () => {
 };
 const removeInstruction = (index) => {
   form.instructions.splice(index, 1);
+};
+
+const addHeader = () => {
+  form.ingredients.push({ type: 'header', name: '' });
 };
 
 // --- NEW: Handle Tag Creation ---
