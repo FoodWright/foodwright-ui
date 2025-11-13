@@ -3,7 +3,7 @@
     <q-header elevated class="bg-primary text-white">
       <q-toolbar>
         <q-toolbar-title>
-          <q-btn flat dense no-caps to="/" class="text-h6">Food Wright</q-btn>
+          <q-btn flat dense no-caps to="/" class="text-h6">Foodwright Guild</q-btn>
         </q-toolbar-title>
 
         <!-- --- User Links (Desktop Only) --- -->
@@ -21,10 +21,17 @@
         <!-- --- NEW: Unified User Menu (Logged In) --- -->
         <div v-if="authStore.user">
           <q-btn flat dense no-caps class="q-ml-md">
-            <!-- Avatar -->
-            <q-avatar size="32px">
-              <img :src="authStore.user.photoURL" alt="User avatar" />
+            <!-- === MODIFIED: Avatar with Fallback + Referrer Policy === -->
+            <q-avatar size="32px" :color="authStore.user.photoURL ? 'white' : 'secondary'"
+              :text-color="authStore.user.photoURL ? 'primary' : 'white'">
+              <img v-if="authStore.user.photoURL" :src="authStore.user.photoURL" alt="User avatar"
+                referrerpolicy="no-referrer" />
+              <template v-else>
+                {{ userInitials }}
+              </template>
             </q-avatar>
+            <!-- === END MODIFICATION === -->
+
             <!-- Desktop-only Name -->
             <div class="q-ml-sm gt-xs">{{ authStore.user.displayName }}</div>
             <!-- Dropdown Arrow -->
@@ -93,7 +100,7 @@
 </template>
 
 <script setup>
-import { getCurrentInstance } from 'vue';
+import { getCurrentInstance, computed } from 'vue'; // <-- ADDED 'computed'
 import { useQuasar } from 'quasar';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { useAuthStore } from 'stores/auth';
@@ -104,6 +111,21 @@ const authStore = useAuthStore();
 const { proxy } = getCurrentInstance();
 const $firebaseAuth = proxy.$firebaseAuth;
 const $googleProvider = proxy.$googleProvider;
+
+// --- ADD THIS COMPUTED PROPERTY ---
+const userInitials = computed(() => {
+  if (authStore.user && authStore.user.displayName) {
+    const parts = authStore.user.displayName.split(' ');
+    if (parts.length > 1) {
+      // Use first letter of first and last name
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    // Use first letter of single name
+    return parts[0][0].toUpperCase();
+  }
+  return '?'; // Fallback for no name
+});
+// ---
 
 const login = async () => {
   try {
