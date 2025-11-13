@@ -81,17 +81,27 @@
                 No ingredients listed.
               </div>
               <q-list v-else dense>
-                <q-item v-for="(item, index) in recipe.ingredients" :key="index">
-                  <q-item-section avatar>
-                    <q-icon color="primary" name="check_circle_outline" />
-                  </q-item-section>
-                  <q-item-section>
-                    <q-item-label>
-                      <strong v-if="item.quantity">{{ item.quantity }}</strong>
-                      {{ item.name }}
-                    </q-item-label>
-                  </q-item-section>
-                </q-item>
+                <template v-for="(item, index) in recipe.ingredients" :key="index">
+                  <!-- Case 1: Header -->
+                  <q-item-label v-if="item.type === 'header'" header class="text-primary text-weight-bold q-mt-md"
+                    style="font-size: 1.1em">
+                    {{ item.name }}
+                  </q-item-label>
+
+                  <!-- Case 2: Ingredient (or old data) -->
+                  <q-item v-if="item.type === 'ingredient' || !item.type" class="q-pl-none">
+                    <q-item-section avatar style="min-width: 40px">
+                      <q-icon color="primary" name="check_circle_outline" />
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>
+                        <strong v-if="item.quantity">{{ item.quantity }}
+                        </strong>
+                        {{ item.name }}
+                      </q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </template>
               </q-list>
             </q-card-section>
             <q-separator />
@@ -112,7 +122,7 @@
                   <q-item-section>
                     <q-item-label class="text-body1">{{
                       item.step
-                      }}</q-item-label>
+                    }}</q-item-label>
                   </q-item-section>
                 </q-item>
               </q-list>
