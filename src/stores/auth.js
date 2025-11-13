@@ -33,6 +33,10 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    setToken(token) {
+      this.token = token;
+    },
+
     setAuthReady() {
       this.authReady = true;
     },
