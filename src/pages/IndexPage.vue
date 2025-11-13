@@ -6,9 +6,14 @@
       <q-card v-if="authStore.user && guildProfile" class="q-mb-md" flat bordered>
         <q-card-section>
           <div class="row items-center q-gutter-md">
-            <!-- Avatar -->
-            <q-avatar size="60px">
-              <img :src="authStore.user.photoURL" />
+            <!-- === MODIFIED: Avatar with Fallback + Referrer Policy === -->
+            <q-avatar size="60px" :color="authStore.user.photoURL ? 'white' : 'secondary'"
+              :text-color="authStore.user.photoURL ? 'primary' : 'white'">
+              <img v-if="authStore.user.photoURL" :src="authStore.user.photoURL" alt="User avatar"
+                referrerpolicy="no-referrer" />
+              <template v-else>
+                {{ userInitials }}
+              </template>
             </q-avatar>
 
             <!-- User Info -->
@@ -249,6 +254,19 @@ const featuredRecipeIds = computed(() =>
 const filteredRecipes = computed(() =>
   recipes.value.filter(r => !featuredRecipeIds.value.includes(r.id))
 );
+
+const userInitials = computed(() => {
+  if (authStore.user && authStore.user.displayName) {
+    const parts = authStore.user.displayName.split(' ');
+    if (parts.length > 1) {
+      // Use first letter of first and last name
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    // Use first letter of single name
+    return parts[0][0].toUpperCase();
+  }
+  return '?'; // Fallback for no name
+});
 
 const fetchRecipes = async () => {
   loading.value = true;
