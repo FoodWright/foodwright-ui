@@ -3,37 +3,85 @@
     <q-header elevated class="bg-primary text-white">
       <q-toolbar>
         <q-toolbar-title>
-          <q-btn flat dense no-caps to="/" class="text-h6">Foodwright Guild</q-btn>
+          <q-btn flat dense no-caps to="/" class="text-h6">Food Wright</q-btn>
         </q-toolbar-title>
 
-        <!-- --- User Links --- -->
-        <div v-if="authStore.user" class="q-gutter-sm">
+        <!-- --- User Links (Desktop Only) --- -->
+        <!-- These hide on 'xs' screens -->
+        <div v-if="authStore.user" class="q-gutter-sm gt-xs">
           <q-btn flat dense to="/my-cookbook" label="My Cookbook" icon="book" />
-          <q-btn flat dense to="/submit" label="Submit Recipe" />
-          <q-btn flat dense to="/my-submissions" label="My Submissions" />
-
-          <q-btn v-if="authStore.isAdmin" flat dense to="/admin" label="Guild Admin" icon="admin_panel_settings"
-            color="yellow" />
-
-          <q-btn v-if="authStore.isSiteAdmin" flat dense to="/site-admin" label="Site Admin" icon="construction"
-            color="red" />
+          <q-btn flat dense to="/submit" label="Submit Recipe" icon="add_circle_outline" />
         </div>
 
         <q-space />
 
-        <!-- === FIX: Corrected v-if and removed duplicate === -->
+        <!-- --- Login Button (Logged Out) --- -->
         <q-btn v-if="!authStore.user" flat @click="login" label="Login with Google" />
 
-        <div v-if="authStore.user" class="row items-center q-gutter-md">
-          <q-btn flat dense no-caps :to="`/user/${authStore.user.uid}`" class="row items-center no-wrap">
-            <q-avatar size="32px" class="q-mr-sm">
+        <!-- --- NEW: Unified User Menu (Logged In) --- -->
+        <div v-if="authStore.user">
+          <q-btn flat dense no-caps class="q-ml-md">
+            <!-- Avatar -->
+            <q-avatar size="32px">
               <img :src="authStore.user.photoURL" alt="User avatar" />
             </q-avatar>
-            <div class="gt-xs">{{ authStore.user.displayName }}</div>
-            <q-tooltip>My Profile</q-tooltip>
-          </q-btn>
+            <!-- Desktop-only Name -->
+            <div class="q-ml-sm gt-xs">{{ authStore.user.displayName }}</div>
+            <!-- Dropdown Arrow -->
+            <q-icon name="arrow_drop_down" class="q-ml-xs" />
 
-          <q-btn flat @click="logout" label="Logout" />
+            <!-- --- Dropdown Menu --- -->
+            <q-menu auto-close>
+              <q-list style="min-width: 220px">
+                <!-- Profile Link -->
+                <q-item clickable :to="`/user/${authStore.user.uid}`">
+                  <q-item-section avatar><q-icon name="person" /></q-item-section>
+                  <q-item-section>My Profile</q-item-section>
+                </q-item>
+
+                <q-separator />
+
+                <!-- Mobile-Only Links (re-appear here) -->
+                <!-- These hide on 'sm' and larger screens -->
+                <q-item clickable to="/my-cookbook" class="lt-sm">
+                  <q-item-section avatar><q-icon name="book" /></q-item-section>
+                  <q-item-section>My Cookbook</q-item-section>
+                </q-item>
+                <q-item clickable to="/submit" class="lt-sm">
+                  <q-item-section avatar><q-icon name="add_circle_outline" /></q-item-section>
+                  <q-item-section>Submit Recipe</q-item-section>
+                </q-item>
+
+                <!-- All-Sizes Links -->
+                <q-item clickable to="/my-submissions">
+                  <q-item-section avatar><q-icon name="playlist_add_check" /></q-item-section>
+                  <q-item-section>My Submissions</q-item-section>
+                </q-item>
+
+                <!-- Admin Links -->
+                <div v-if="authStore.isAdmin || authStore.isSiteAdmin">
+                  <q-separator />
+                  <q-item-label header>Admin</q-item-label>
+                  <q-item v-if="authStore.isAdmin" clickable to="/admin">
+                    <q-item-section avatar><q-icon name="admin_panel_settings" color="amber-8" /></q-item-section>
+                    <q-item-section>Guild Admin</q-item-section>
+                  </q-item>
+                  <q-item v-if="authStore.isSiteAdmin" clickable to="/site-admin">
+                    <q-item-section avatar><q-icon name="construction" color="red-8" /></q-item-section>
+                    <q-item-section>Site Admin</q-item-section>
+                  </q-item>
+                </div>
+
+                <q-separator />
+
+                <!-- Logout Button -->
+                <q-item clickable @click="logout">
+                  <q-item-section avatar><q-icon name="logout" /></q-item-section>
+                  <q-item-section>Logout</q-item-section>
+                </q-item>
+              </q-list>
+            </q-menu>
+          </q-btn>
         </div>
       </q-toolbar>
     </q-header>
