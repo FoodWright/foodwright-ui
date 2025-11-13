@@ -1,40 +1,9 @@
 import { defineStore } from 'pinia';
 import { useAuthStore } from './auth';
+import { fetchWithAuth, fetchPublic } from 'src/services/api';
 
-const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
+// const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
 
-// --- NEW: Public Fetch Helper ---
-const fetchPublic = async (endpoint) => {
-  const response = await fetch(`${API_URL}${endpoint}`);
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(
-      errData.message || `Server responded with ${response.status}`
-    );
-  }
-  if (response.status === 204) return null;
-  return response.json();
-};
-// ---
-
-const fetchWithAuth = async (endpoint, options = {}) => {
-  const authStore = useAuthStore();
-  const token = authStore.token;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(
-      errData.message || `Server responded with ${response.status}`
-    );
-  }
-  if (response.status === 204) return null;
-  return response.json();
-};
 
 export const useRecipeStore = defineStore('recipes', {
   state: () => ({
