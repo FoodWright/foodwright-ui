@@ -4,12 +4,19 @@ import {
   getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
-  onIdTokenChanged
+  onIdTokenChanged, // Keep this for token refreshes
+  getIdToken,
+  // --- NEW IMPORTS ---
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  // ---
 } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { useAuthStore } from 'stores/auth';
-import { getIdToken } from 'firebase/auth';
 
 // ... (firebaseConfig remains the same) ...
 const firebaseConfig = {
@@ -26,37 +33,50 @@ const firebaseAuth = getAuth(firebaseApp);
 const firebaseStorage = getStorage(firebaseApp);
 const googleProvider = new GoogleAuthProvider();
 
-if (location.hostname === "localhost") {
+if (location.hostname === 'localhost') {
   self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
 } else {
   self.FIREBASE_APPCHECK_DEBUG_TOKEN = false;
 }
 
 initializeAppCheck(firebaseApp, {
-  provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITEKEY)
+  provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITEKEY),
 });
 
 export default boot(({ app, store }) => {
+  // <-- Add router
   const authStore = useAuthStore(store);
 
+  // This handles INITIAL LOAD, LOGIN, and LOGOUT
   onAuthStateChanged(firebaseAuth, async (user) => {
     console.log('Firebase auth state changed, user:', user?.uid || 'null');
-    // Wait for setUser to complete (which includes fetching the token)
     await authStore.setUser(user);
-    // NOW, signal to the rest of the app that auth is ready
     authStore.setAuthReady();
   });
 
+  // This handles automatic TOKEN REFRESHES in the background
   onIdTokenChanged(firebaseAuth, async (user) => {
     if (user) {
       // User is still logged in, but token has refreshed
       console.log('Firebase ID token refreshed.');
       const idToken = await getIdToken(user); // Get the new token
-      authStore.token = idToken; // Silently update the token in Pinia
+      authStore.setToken(idToken); // Silently update the token in Pinia
     }
   });
 
+  // Make all Firebase functions available to the app
+  // (This is used by the auth store)
   app.config.globalProperties.$firebaseAuth = firebaseAuth;
   app.config.globalProperties.$googleProvider = googleProvider;
   app.config.globalProperties.$firebaseStorage = firebaseStorage;
+
+  // --- NEW: Add auth functions to global properties ---
+  app.config.globalProperties.$auth = {
+    signInWithPopup,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut,
+    updateProfile,
+  };
+  // ---
 });

@@ -15,8 +15,9 @@
 
         <q-space />
 
-        <!-- --- Login Button (Logged Out) --- -->
-        <q-btn v-if="!authStore.user" flat @click="login" label="Login with Google" />
+        <!-- --- MODIFIED: Login Button (Logged Out) --- -->
+        <q-btn v-if="!authStore.user" flat to="/login" label="Login / Sign Up" />
+        <!-- === END MODIFICATION === -->
 
         <!-- --- NEW: Unified User Menu (Logged In) --- -->
         <div v-if="authStore.user">
@@ -81,11 +82,12 @@
 
                 <q-separator />
 
-                <!-- Logout Button -->
-                <q-item clickable @click="logout">
+                <!-- === MODIFIED: Logout Button === -->
+                <q-item clickable @click="handleLogout()">
                   <q-item-section avatar><q-icon name="logout" /></q-item-section>
                   <q-item-section>Logout</q-item-section>
                 </q-item>
+                <!-- === END MODIFICATION === -->
               </q-list>
             </q-menu>
           </q-btn>
@@ -100,54 +102,29 @@
 </template>
 
 <script setup>
-import { getCurrentInstance, computed } from 'vue'; // <-- ADDED 'computed'
+import { getCurrentInstance, computed } from 'vue';
 import { useQuasar } from 'quasar';
-import { signInWithPopup, signOut } from 'firebase/auth';
 import { useAuthStore } from 'stores/auth';
+import { useRouter } from 'vue-router'; // <-- IMPORT useRouter
 
 const $q = useQuasar();
 const authStore = useAuthStore();
+const router = useRouter(); // <-- GET ROUTER
+// --- START: MODIFICATION ---
+const { proxy } = getCurrentInstance(); // <-- GET COMPONENT PROXY
+// --- END: MODIFICATION ---
 
-const { proxy } = getCurrentInstance();
-const $firebaseAuth = proxy.$firebaseAuth;
-const $googleProvider = proxy.$googleProvider;
-
-// --- ADD THIS COMPUTED PROPERTY ---
-const userInitials = computed(() => {
-  if (authStore.user && authStore.user.displayName) {
-    const parts = authStore.user.displayName.split(' ');
-    if (parts.length > 1) {
-      // Use first letter of first and last name
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    // Use first letter of single name
-    return parts[0][0].toUpperCase();
-  }
-  return '?'; // Fallback for no name
-});
-// ---
-
-const login = async () => {
+// --- NEW: handleLogout function ---
+const handleLogout = async () => {
+  // --- START: MODIFICATION ---
+  const { $firebaseAuth, $auth } = proxy; // <-- GET GLOBAL PROPERTIES DIRECTLY
+  // --- END: MODIFICATION ---
   try {
-    await signInWithPopup($firebaseAuth, $googleProvider);
-    $q.notify({
-      color: 'positive',
-      icon: 'check_circle',
-      message: 'Logged in successfully!',
-    });
-  } catch (err) {
-    console.error('Login failed:', err);
-    $q.notify({
-      color: 'negative',
-      icon: 'error',
-      message: 'Login failed. Please try again.',
-    });
-  }
-};
-
-const logout = async () => {
-  try {
-    await signOut($firebaseAuth);
+    await $auth.signOut($firebaseAuth);
+    // onAuthStateChanged will fire, but we also clear state
+    // and push to login immediately.
+    await authStore.clearAuthData();
+    router.push('/login');
     $q.notify({
       color: 'primary',
       icon: 'info',
@@ -157,18 +134,19 @@ const logout = async () => {
     console.error('Logout failed:', err);
   }
 };
+// ---
+
+// --- Compute user initials ---
+const userInitials = computed(() => {
+  const name = authStore.user?.displayName || '';
+  const parts = name.split(' ');
+  if (parts.length > 1) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return name.substring(0, 2).toUpperCase();
+});
 </script>
 
 <style>
-body,
-.q-layout,
-.q-toolbar__title,
-.q-btn,
-.q-card {
-  font-family: 'Inter', sans-serif;
-}
-
-.text-h6 {
-  font-weight: 600;
-}
+/* ... existing styles ... */
 </style>
