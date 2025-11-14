@@ -69,7 +69,8 @@
                     <q-item v-for="(item, index) in recipe.ingredients" :key="index">
                       <q-item-section>
                         <q-item-label>
-                          <strong v-if="item.quantity">{{ item.quantity }}</strong>
+                          <strong v-if="item.quantity">{{ item.quantity }}
+                          </strong>
                           {{ item.name }}
                         </q-item-label>
                       </q-item-section>
@@ -99,11 +100,19 @@
             <q-separator />
 
             <!-- Admin Actions -->
-            <q-card-actions align="right" class="q-pa-md">
+            <q-card-actions align="right" class="q-pa-md q-gutter-md">
+              <!-- === NEW: XP Input === -->
+              <q-input v-model.number="recipeXp[recipe.id]" label="XP Value" type="number" dense outlined
+                style="width: 100px" :rules="[
+                  (val) => val >= 10 || 'Min 10',
+                  (val) => val <= 100 || 'Max 100',
+                ]" lazy-rules />
+              <!-- === END NEW === -->
               <q-btn label="Reject" color="negative" @click="rejectRecipe(recipe.id)"
                 :loading="actionLoading[recipe.id]" />
-              <q-btn label="Approve" color="positive" @click="approveRecipe(recipe.id)"
-                :loading="actionLoading[recipe.id]" />
+              <q-btn label="Approve" color="positive" @click="approveRecipe(recipe.id, recipeXp[recipe.id])"
+                :loading="actionLoading[recipe.id]"
+                :disable="!recipeXp[recipe.id] || recipeXp[recipe.id] < 10 || recipeXp[recipe.id] > 100" />
             </q-card-actions>
           </div>
         </div>
@@ -113,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watch } from 'vue'; // <-- Import watch
 import { useRecipeStore } from 'stores/recipes';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
@@ -125,6 +134,20 @@ const { pendingRecipes } = storeToRefs(recipeStore);
 const loading = ref(false);
 const error = ref(null);
 const actionLoading = reactive({}); // Track loading state for each button
+const recipeXp = reactive({}); // --- NEW: Store XP values by recipe ID
+
+// --- NEW: Watcher to populate default XP values ---
+watch(pendingRecipes, (newRecipes) => {
+  if (newRecipes) {
+    newRecipes.forEach((recipe) => {
+      if (!recipeXp[recipe.id]) {
+        // Default to 10 if XP is 0 (from private), otherwise use submitted value
+        recipeXp[recipe.id] = recipe.xp > 0 ? recipe.xp : 10;
+      }
+    });
+  }
+});
+// ---
 
 const fetchPendingRecipes = async () => {
   loading.value = true;
@@ -139,14 +162,23 @@ const fetchPendingRecipes = async () => {
   }
 };
 
-const approveRecipe = async (id) => {
+// --- MODIFIED: Pass xp value ---
+const approveRecipe = async (id, xp) => {
+  if (xp < 10 || xp > 100) {
+    $q.notify({
+      color: 'negative',
+      message: 'XP must be between 10 and 100.',
+    });
+    return;
+  }
   actionLoading[id] = true;
   try {
-    await recipeStore.approveRecipe(id);
+    await recipeStore.approveRecipe(id, xp); // <-- Pass XP
     $q.notify({
       color: 'positive',
       message: 'Recipe approved! XP and badge awarded to user.',
     });
+    delete recipeXp[id]; // Clean up state
   } catch (err) {
     console.error('Failed to approve recipe:', err);
     $q.notify({
@@ -166,6 +198,7 @@ const rejectRecipe = async (id) => {
       color: 'negative',
       message: 'Recipe rejected.',
     });
+    delete recipeXp[id]; // Clean up state
   } catch (err) {
     console.error('Failed to reject recipe:', err);
     $q.notify({

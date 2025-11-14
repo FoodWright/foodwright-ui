@@ -3,7 +3,7 @@
     <q-header elevated class="bg-primary text-white">
       <q-toolbar>
         <q-toolbar-title>
-          <q-btn flat dense no-caps to="/" class="text-h6">Foodwright Guild</q-btn>
+          <q-btn flat dense no-caps to="/" class="text-h6">Food Wright</q-btn>
         </q-toolbar-title>
 
         <!-- --- User Links (Desktop Only) --- -->
