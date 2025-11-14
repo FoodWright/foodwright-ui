@@ -37,7 +37,9 @@
                 </q-item-section>
                 <q-item-section>
                   <q-item-label overline>Rank</q-item-label>
-                  <q-item-label class="text-weight-bold">{{ profile.rank }}</q-item-label>
+                  <q-item-label class="text-weight-bold">{{
+                    profile.rank
+                    }}</q-item-label>
                 </q-item-section>
               </q-item>
               <q-item>
@@ -46,7 +48,9 @@
                 </q-item-section>
                 <q-item-section>
                   <q-item-label overline>XP</q-item-label>
-                  <q-item-label class="text-weight-bold">{{ profile.xp }}</q-item-label>
+                  <q-item-label class="text-weight-bold">{{
+                    profile.xp
+                    }}</q-item-label>
                 </q-item-section>
               </q-item>
 
@@ -57,30 +61,39 @@
                 </q-item-section>
                 <q-item-section>
                   <q-item-label overline>Badges</q-item-label>
-                  <q-item-label v-if="profile.badges && profile.badges.length">
-                    <q-chip v-for="badge in profile.badges" :key="badge.id" color="secondary" text-color="white"
-                      size="sm" :label="badge.name" class="q-ma-xs">
-                      <!-- === FIX: Use the working pattern from SiteAdminPage === -->
-                      <template v-slot:prepend>
-                        <q-avatar v-if="badge.icon_url.Valid">
-                          <!-- Case 1: Icon is a URL -->
-                          <q-img :src="badge.icon_url.String" v-if="badge.icon_url.String.startsWith('http')" />
-                          <!-- Case 2: Icon is a FontAwesome name -->
-                          <q-icon :name="badge.icon_url.String" v-else />
-                        </q-avatar>
-                        <!-- Case 3: No Icon (fallback) -->
-                        <q-avatar v-else icon="military_tech" color="transparent" text-color="white" />
-                      </template>
-                      <!-- === END FIX === -->
+                  <q-item-label v-if="profile.badges && profile.badges.length" class="row items-center q-gutter-sm">
+                    <!-- === MODIFIED: Refactored Badge Logic === -->
+                    <div v-for="badge in profile.badges" :key="badge.id" class="badge-avatar-wrapper cursor-pointer"
+                      @click="openZoomDialog(badge)">
+                      <!-- Case 1: It's an HTTP URL (render <q-img> inside) -->
+                      <q-avatar v-if="
+                        badge.icon_url.Valid &&
+                        badge.icon_url.String.startsWith('http')
+                      " size="36px" color="white">
+                        <q-img :src="badge.icon_url.String" referrerpolicy="no-referrer" fit="contain"
+                          style="height: 36px" />
+                      </q-avatar>
 
+                      <!-- Case 2: It's a FontAwesome icon or fallback -->
+                      <q-avatar v-else size="36px" font-size="20px" color="secondary" text-color="white" :icon="badge.icon_url.Valid
+                          ? badge.icon_url.String
+                          : 'military_tech'
+                        ">
+                      </q-avatar>
+
+                      <!-- Tooltip (applied to the wrapper div) -->
                       <q-tooltip class="bg-black text-body2" :offset="[10, 10]">
                         <div class="text-weight-bold">{{ badge.name }}</div>
                         <div>{{ badge.description }}</div>
                         <div class="text-caption q-mt-sm">
                           Earned: {{ formatJoinDate(badge.earned_at.Time) }}
                         </div>
+                        <div class="text-caption text-italic q-mt-xs">
+                          Click to zoom
+                        </div>
                       </q-tooltip>
-                    </q-chip>
+                    </div>
+                    <!-- === END MODIFICATION === -->
                   </q-item-label>
                   <q-item-label v-else class="text-caption text-grey-7">
                     No badges earned yet.
@@ -88,7 +101,6 @@
                 </q-item-section>
               </q-item>
               <!-- === END MODIFICATION === -->
-
             </q-list>
           </q-card-section>
         </q-card>
@@ -119,7 +131,7 @@
             <q-item-section>
               <q-item-label>
                 Logged a cook for
-                <router-link :to="`/recipe/${log.recipe_id}-${log.recipe_slug}`" class="text-weight-bold text-primary">
+                <router-link :to="`/recipe/${log.recipe_id}`" class="text-weight-bold text-primary">
                   {{ log.recipe_title }}
                 </router-link>
               </q-item-label>
@@ -136,11 +148,41 @@
                 {{ formatTimeAgo(log.logged_at) }}
               </q-item-label>
             </q-item-section>
-
           </q-item>
         </q-list>
       </div>
     </div>
+
+    <!-- === NEW: Badge Zoom Dialog === -->
+    <q-dialog v-model="showZoomDialog">
+      <q-card v-if="zoomedBadge" style="width: 300px">
+        <q-card-section class="text-center q-pb-none">
+          <!-- Case 1: Image URL -->
+          <q-img v-if="
+            zoomedBadge.icon_url.Valid &&
+            zoomedBadge.icon_url.String.startsWith('http')
+          " :src="zoomedBadge.icon_url.String" referrerpolicy="no-referrer" fit="contain"
+            style="max-width: 250px; height: 250px" />
+          <!-- Case 2: Icon -->
+          <q-icon v-else :name="zoomedBadge.icon_url.Valid
+              ? zoomedBadge.icon_url.String
+              : 'military_tech'
+            " color="secondary" size="250px" />
+        </q-card-section>
+
+        <q-card-section>
+          <div class="text-h6 text-center">{{ zoomedBadge.name }}</div>
+          <p class="text-body2 text-center text-grey-8 q-mt-sm">
+            {{ zoomedBadge.description }}
+          </p>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="Close" color="primary" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+    <!-- === END NEW === -->
   </q-page>
 </template>
 
@@ -158,6 +200,16 @@ const userId = ref(route.params.id);
 
 const loading = reactive({ profile: false, logs: false });
 const error = reactive({ profile: null, logs: null });
+
+// --- NEW: Badge Zoom State ---
+const showZoomDialog = ref(false);
+const zoomedBadge = ref(null);
+
+const openZoomDialog = (badge) => {
+  zoomedBadge.value = badge;
+  showZoomDialog.value = true;
+};
+// ---
 
 const fetchProfile = async (id) => {
   loading.profile = true;
@@ -198,16 +250,16 @@ const formatTimeAgo = (isoString) => {
   const date = new Date(isoString);
   const seconds = Math.floor((new Date() - date) / 1000);
   let interval = seconds / 31536000;
-  if (interval > 1) return Math.floor(interval) + " years ago";
+  if (interval > 1) return Math.floor(interval) + ' years ago';
   interval = seconds / 2592000;
-  if (interval > 1) return Math.floor(interval) + " months ago";
+  if (interval > 1) return Math.floor(interval) + ' months ago';
   interval = seconds / 86400;
-  if (interval > 1) return Math.floor(interval) + " days ago";
+  if (interval > 1) return Math.floor(interval) + ' days ago';
   interval = seconds / 3600;
-  if (interval > 1) return Math.floor(interval) + " hours ago";
+  if (interval > 1) return Math.floor(interval) + ' hours ago';
   interval = seconds / 60;
-  if (interval > 1) return Math.floor(interval) + " minutes ago";
-  return Math.floor(seconds) + " seconds ago";
+  if (interval > 1) return Math.floor(interval) + ' minutes ago';
+  return Math.floor(seconds) + ' seconds ago';
 };
 
 onMounted(() => {

@@ -2,73 +2,12 @@
   <q-page class="q-pa-md">
     <!-- Main content area, centered -->
     <div style="max-width: 900px; margin: 0 auto">
-      <!-- === Guild Card === -->
-      <q-card v-if="authStore.user && guildProfile" class="q-mb-md" flat bordered>
-        <q-card-section>
-          <div class="row items-center q-gutter-md">
-            <!-- === MODIFIED: Avatar with Fallback + Referrer Policy === -->
-            <q-avatar size="60px" :color="authStore.user.photoURL ? 'white' : 'secondary'"
-              :text-color="authStore.user.photoURL ? 'primary' : 'white'">
-              <img v-if="authStore.user.photoURL" :src="authStore.user.photoURL" alt="User avatar"
-                referrerpolicy="no-referrer" />
-              <template v-else>
-                {{ userInitials }}
-              </template>
-            </q-avatar>
-
-            <!-- User Info -->
-            <div>
-              <div class="text-h6">
-                Welcome back, {{ authStore.user.displayName }}!
-              </div>
-              <div class="text-subtitle1 text-grey-8">
-                Your Rank:
-                <span class="text-weight-bold text-primary">{{
-                  guildProfile.rank
-                }}</span>
-              </div>
-            </div>
-
-            <!-- XP -->
-            <q-space />
-            <div class="text-right">
-              <div class="text-overline text-grey-7">XP</div>
-              <div class="text-h5 text-weight-bold">
-                {{ guildProfile.xp }}
-              </div>
-            </div>
-          </div>
-
-          <div v-if="guildProfile.badges && guildProfile.badges.length" class="q-mt-md">
-            <div class="text-overline text-grey-7">Your Badges</div>
-            <q-chip v-for="badge in guildProfile.badges" :key="badge.id" color="secondary" text-color="white" size="md"
-              :label="badge.name" class="q-mr-sm">
-              <template v-slot:prepend>
-                <q-avatar v-if="badge.icon_url.Valid">
-                  <q-img :src="badge.icon_url.String" v-if="badge.icon_url.String.startsWith('http')" />
-                  <q-icon :name="badge.icon_url.String" v-else />
-                </q-avatar>
-                <q-avatar v-else icon="military_tech" color="transparent" text-color="white" />
-              </template>
-
-              <q-tooltip class="bg-black text-body2" :offset="[10, 10]">
-                <div class="text-weight-bold">{{ badge.name }}</div>
-                <div>{{ badge.description }}</div>
-                <div class="text-caption q-mt-sm">
-                  Earned: {{ formatJoinDate(badge.earned_at.Time) }}
-                </div>
-              </q-tooltip>
-            </q-chip>
-          </div>
-
-        </q-card-section>
-      </q-card>
-      <!-- === End Guild Card === -->
-
+      <!-- === NEW: Featured Recipes Section === -->
       <div v-if="featuredRecipes.length > 0" class="q-mb-md">
         <h4 class="text-h4 q-mt-none q-mb-md">Featured Recipes</h4>
         <div class="row q-col-gutter-md">
           <div v-for="recipe in featuredRecipes" :key="recipe.id" class="col-12 col-md-6">
+            <!-- This is the full card markup from the main list -->
             <router-link :to="`/recipe/${recipe.id}-${recipe.slug}`" class="recipe-link">
               <q-card class="recipe-card full-height" flat bordered>
                 <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
@@ -108,14 +47,92 @@
                 </q-card-section>
               </q-card>
             </router-link>
+            <!-- === END: Full Card Markup === -->
           </div>
         </div>
         <q-separator class="q-my-lg" />
       </div>
-      <div class="row q-col-gutter-md">
-        <div v-for="recipe in filteredRecipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
-        </div>
-      </div>
+      <!-- === END: Featured Recipes Section === -->
+
+      <!-- === Guild Card === -->
+      <q-card v-if="authStore.user && guildProfile" class="q-mb-md" flat bordered>
+        <q-card-section>
+          <div class="row items-center q-gutter-md">
+            <!-- === MODIFIED: Avatar with Fallback + Referrer Policy === -->
+            <q-avatar size="60px" :color="authStore.user.photoURL ? 'white' : 'secondary'"
+              :text-color="authStore.user.photoURL ? 'primary' : 'white'">
+              <img v-if="authStore.user.photoURL" :src="authStore.user.photoURL" alt="User avatar"
+                referrerpolicy="no-referrer" />
+              <template v-else>
+                {{ userInitials }}
+              </template>
+            </q-avatar>
+            <!-- === END MODIFICATION === -->
+
+            <!-- User Info -->
+            <div>
+              <div class="text-h6">
+                Welcome back, {{ authStore.user.displayName }}!
+              </div>
+              <div class="text-subtitle1 text-grey-8">
+                Your Rank:
+                <span class="text-weight-bold text-primary">{{
+                  guildProfile.rank
+                  }}</span>
+              </div>
+            </div>
+
+            <!-- XP -->
+            <q-space />
+            <div class="text-right">
+              <div class="text-overline text-grey-7">XP</div>
+              <div class="text-h5 text-weight-bold">
+                {{ guildProfile.xp }}
+              </div>
+            </div>
+          </div>
+
+          <!-- === MODIFIED: Badges as Avatars === -->
+          <div v-if="guildProfile.badges && guildProfile.badges.length" class="q-mt-md">
+            <div class="text-overline text-grey-7">Your Badges</div>
+            <div class="row items-center q-gutter-sm">
+              <!-- === MODIFIED: Refactored Badge Logic === -->
+              <div v-for="badge in guildProfile.badges" :key="badge.id" class="badge-avatar-wrapper cursor-pointer"
+                @click="openZoomDialog(badge)">
+                <!-- Case 1: It's an HTTP URL (render <q-img> inside) -->
+                <q-avatar v-if="
+                  badge.icon_url.Valid &&
+                  badge.icon_url.String.startsWith('http')
+                " size="36px" color="white">
+                  <q-img :src="badge.icon_url.String" referrerpolicy="no-referrer" fit="contain" style="height: 36px" />
+                </q-avatar>
+
+                <!-- Case 2: It's a FontAwesome icon or fallback -->
+                <q-avatar v-else size="36px" font-size="20px" color="secondary" text-color="white" :icon="badge.icon_url.Valid
+                    ? badge.icon_url.String
+                    : 'military_tech'
+                  ">
+                </q-avatar>
+
+                <!-- Tooltip (applied to the wrapper div, will work for both) -->
+                <q-tooltip class="bg-black text-body2" :offset="[10, 10]">
+                  <div class="text-weight-bold">{{ badge.name }}</div>
+                  <div>{{ badge.description }}</div>
+                  <div class="text-caption q-mt-sm">
+                    Earned: {{ formatJoinDate(badge.earned_at.Time) }}
+                  </div>
+                  <div class="text-caption text-italic q-mt-xs">
+                    Click to zoom
+                  </div>
+                </q-tooltip>
+              </div>
+              <!-- === END MODIFICATION === -->
+            </div>
+          </div>
+          <!-- === END MODIFICATION === -->
+        </q-card-section>
+      </q-card>
+      <!-- === End Guild Card === -->
 
       <!-- Search and Filter Controls -->
       <div class="row q-col-gutter-md q-mb-md">
@@ -165,7 +182,7 @@
 
       <!-- Recipe List -->
       <div class="row q-col-gutter-md">
-        <div v-for="recipe in recipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
+        <div v-for="recipe in filteredRecipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
           <router-link :to="`/recipe/${recipe.id}-${recipe.slug}`" class="recipe-link">
             <q-card class="recipe-card full-height" flat bordered>
               <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
@@ -196,14 +213,14 @@
                 <div class="q-mt-sm" v-if="recipe.cook_count > 0">
                   <q-rating :model-value="recipe.avg_rating" size="xs" color="orange" icon="star" readonly />
                   <span class="text-caption text-grey-7 q-ml-xs">
-                    ({{ recipe.cook_count }} {{ recipe.cook_count === 1 ? 'review' : 'reviews' }})
+                    ({{ recipe.cook_count }}
+                    {{ recipe.cook_count === 1 ? 'review' : 'reviews' }})
                   </span>
                 </div>
                 <div class="q-mt-sm text-caption text-grey-6" v-else>
                   No reviews yet
                 </div>
                 <!-- === END NEW === -->
-
               </q-card-section>
             </q-card>
           </router-link>
@@ -215,6 +232,37 @@
         <q-pagination v-model="currentPage" :max="totalPages" direction-links />
       </div>
     </div>
+
+    <!-- === NEW: Badge Zoom Dialog === -->
+    <q-dialog v-model="showZoomDialog">
+      <q-card v-if="zoomedBadge" style="width: 300px">
+        <q-card-section class="text-center q-pb-none">
+          <!-- Case 1: Image URL -->
+          <q-img v-if="
+            zoomedBadge.icon_url.Valid &&
+            zoomedBadge.icon_url.String.startsWith('http')
+          " :src="zoomedBadge.icon_url.String" referrerpolicy="no-referrer" fit="contain"
+            style="max-width: 250px; height: 250px" />
+          <!-- Case 2: Icon -->
+          <q-icon v-else :name="zoomedBadge.icon_url.Valid
+              ? zoomedBadge.icon_url.String
+              : 'military_tech'
+            " color="secondary" size="250px" />
+        </q-card-section>
+
+        <q-card-section>
+          <div class="text-h6 text-center">{{ zoomedBadge.name }}</div>
+          <p class="text-body2 text-center text-grey-8 q-mt-sm">
+            {{ zoomedBadge.description }}
+          </p>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="Close" color="primary" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+    <!-- === END NEW === -->
   </q-page>
 </template>
 
@@ -230,7 +278,9 @@ const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
 const userStore = useUserStore();
 
-const { recipes, tags: availableTags, featuredRecipes } = storeToRefs(recipeStore);
+const { recipes, tags: availableTags, featuredRecipes } = storeToRefs(
+  recipeStore
+);
 const { profile: guildProfile } = storeToRefs(userStore);
 
 const $q = useQuasar();
@@ -245,28 +295,36 @@ const totalPages = ref(1);
 
 const favoritesLoaded = ref(false);
 
+// --- NEW: Badge Zoom State ---
+const showZoomDialog = ref(false);
+const zoomedBadge = ref(null);
+
+const openZoomDialog = (badge) => {
+  zoomedBadge.value = badge;
+  showZoomDialog.value = true;
+};
+// ---
+
+// --- NEW: Compute user initials ---
+const userInitials = computed(() => {
+  const name = authStore.user?.displayName || '';
+  const parts = name.split(' ');
+  if (parts.length > 1) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return name.substring(0, 2).toUpperCase();
+});
+// ---
+
 // --- NEW: Computed prop for featured IDs ---
 const featuredRecipeIds = computed(() =>
-  featuredRecipes.value.map(r => r.id)
+  featuredRecipes.value.map((r) => r.id)
 );
 
 // --- NEW: Computed prop to filter main list ---
 const filteredRecipes = computed(() =>
-  recipes.value.filter(r => !featuredRecipeIds.value.includes(r.id))
+  recipes.value.filter((r) => !featuredRecipeIds.value.includes(r.id))
 );
-
-const userInitials = computed(() => {
-  if (authStore.user && authStore.user.displayName) {
-    const parts = authStore.user.displayName.split(' ');
-    if (parts.length > 1) {
-      // Use first letter of first and last name
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    // Use first letter of single name
-    return parts[0][0].toUpperCase();
-  }
-  return '?'; // Fallback for no name
-});
 
 const fetchRecipes = async () => {
   loading.value = true;
@@ -308,7 +366,7 @@ const fetchProfileAndFavorites = async () => {
     favoritesLoaded.value = true;
   } catch (err) {
     console.error('Failed to fetch profile/favorites:', err);
-    $q.notify({ color: 'negative', message: 'Could not load your profile.' })
+    $q.notify({ color: 'negative', message: 'Could not load your profile.' });
   }
 };
 
@@ -322,7 +380,10 @@ const formatJoinDate = (isoString) => {
 };
 
 const isFavorited = (recipeId) => {
-  return Array.isArray(authStore.favoriteRecipeIds) && authStore.favoriteRecipeIds.includes(recipeId);
+  return (
+    Array.isArray(authStore.favoriteRecipeIds) &&
+    authStore.favoriteRecipeIds.includes(recipeId)
+  );
 };
 
 const toggleFavorite = async (recipeId) => {
@@ -342,13 +403,13 @@ const toggleFavorite = async (recipeId) => {
       $q.notify({
         color: 'primary',
         message: 'Removed from cookbook',
-        icon: 'bookmark_remove'
+        icon: 'bookmark_remove',
       });
     } else {
       $q.notify({
         color: 'positive',
         message: 'Added to cookbook!',
-        icon: 'bookmark_add'
+        icon: 'bookmark_add',
       });
     }
   } catch (err) {
@@ -372,7 +433,7 @@ watch(currentPage, () => {
 onMounted(() => {
   fetchRecipes();
   fetchTags();
-  recipeStore.fetchFeaturedRecipes();
+  recipeStore.fetchFeaturedRecipes(); // <-- ADD THIS
 });
 
 watch(
