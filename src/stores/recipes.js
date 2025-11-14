@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia';
+// --- MODIFIED IMPORTS ---
 import { useAuthStore } from './auth';
 import { fetchWithAuth, fetchPublic } from 'src/services/api';
-
-// const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
-
+// ---
 
 export const useRecipeStore = defineStore('recipes', {
   state: () => ({
@@ -19,20 +18,20 @@ export const useRecipeStore = defineStore('recipes', {
     featuredRecipes: [],
   }),
   actions: {
-    async fetchFeaturedRecipes() {
-      const data = await fetchPublic('/recipes/featured');
-      this.featuredRecipes = data || [];
-      return this.featuredRecipes;
-    },
     async fetchPendingRecipes() {
       const data = await fetchWithAuth('/admin/pending-recipes');
       this.pendingRecipes = data || [];
       return this.pendingRecipes;
     },
-    async approveRecipe(id) {
-      await fetchWithAuth(`/admin/recipes/${id}/approve`, { method: 'POST' });
+    // --- MODIFIED: Send XP value ---
+    async approveRecipe(id, xp) {
+      await fetchWithAuth(`/admin/recipes/${id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ xp: xp || 10 }), // Send the XP in the body
+      });
       this.pendingRecipes = this.pendingRecipes.filter((r) => r.id !== id);
     },
+    // ---
     async rejectRecipe(id) {
       await fetchWithAuth(`/admin/recipes/${id}/reject`, { method: 'POST' });
       this.pendingRecipes = this.pendingRecipes.filter((r) => r.id !== id);
@@ -57,7 +56,9 @@ export const useRecipeStore = defineStore('recipes', {
       const isFavorited = authStore.favoriteRecipeIds.includes(recipeId);
       if (isFavorited) {
         authStore.removeFavoriteId(recipeId);
-        await fetchWithAuth(`/recipes/${recipeId}/favorite`, { method: 'DELETE' });
+        await fetchWithAuth(`/recipes/${recipeId}/favorite`, {
+          method: 'DELETE',
+        });
         this.favorites = this.favorites.filter((r) => r.id !== recipeId);
       } else {
         authStore.addFavoriteId(recipeId);
@@ -67,7 +68,7 @@ export const useRecipeStore = defineStore('recipes', {
     },
     async deletePrivateRecipe(recipeId) {
       await fetchWithAuth(`/recipes/private/${recipeId}`, { method: 'DELETE' });
-      this.privateRecipes = this.privateRecipes.filter(r => r.id !== recipeId);
+      this.privateRecipes = this.privateRecipes.filter((r) => r.id !== recipeId);
     },
 
     // --- MODIFIED: Use fetchPublic ---
@@ -84,10 +85,22 @@ export const useRecipeStore = defineStore('recipes', {
     },
     // ---
 
+    // --- NEW: Action to fetch featured recipes ---
+    async fetchFeaturedRecipes() {
+      const data = await fetchPublic('/recipes/featured');
+      this.featuredRecipes = data || [];
+      return this.featuredRecipes;
+    },
+
     async fetchRecipe(id) {
-      // This uses fetchWithAuth *intentionally* to get user-specific data
-      // (like private recipes, favorited status, etc. in the future)
-      const data = await fetchWithAuth(`/recipes/${id}`);
+      const authStore = useAuthStore();
+      let data;
+      // Use public fetch if not logged in
+      if (authStore.user) {
+        data = await fetchWithAuth(`/recipes/${id}`);
+      } else {
+        data = await fetchPublic(`/recipes/${id}`);
+      }
       this.recipe = data;
       return data;
     },
@@ -126,7 +139,8 @@ export const useRecipeStore = defineStore('recipes', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      await this.fetchCookLogs(id);
+      // Refresh both logs and main recipe (for ratings)
+      await Promise.all([this.fetchCookLogs(id), this.fetchRecipe(id)]);
       return response;
     },
     async postComment(id, comment) {
