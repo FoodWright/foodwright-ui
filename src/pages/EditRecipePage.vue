@@ -76,9 +76,9 @@
             </div>
           </div>
 
+          <!-- === MODIFIED: v-for with conditional rendering === -->
           <div v-for="(ingredient, index) in form.ingredients" :key="index"
             class="row items-center q-gutter-sm q-mb-sm">
-
             <!-- Case 1: Ingredient -->
             <template v-if="ingredient.type === 'ingredient' || !ingredient.type">
               <!-- Added !ingredient.type for backward compatibility before migration -->
@@ -91,8 +91,11 @@
               <q-input v-model="ingredient.name" label="Section Header (e.g. Filling)" outlined dense class="col"
                 input-class="text-weight-bold text-primary" />
             </template>
+
             <q-btn @click="removeIngredient(index)" flat round dense color="negative" icon="remove_circle_outline" />
           </div>
+          <!-- === END MODIFICATION === -->
+
           <div v-if="form.ingredients.length === 0" class="text-grey-7 q-pa-md text-center">
             Add your first ingredient.
           </div>
@@ -171,7 +174,7 @@ const isEditMode = computed(() => !!recipeId.value);
 const form = reactive({
   title: '',
   description: '',
-  tags: [],
+  tags: [], // <-- MODIFIED: Now an array
   xp: 0,
   status: 'private',
   ingredients: [],
@@ -181,7 +184,7 @@ const form = reactive({
 
 // ... (ingredients/instructions functions are unchanged) ...
 const addIngredient = () => {
-  form.ingredients.push({ type: 'ingredient', quantity: '', name: '' });
+  form.ingredients.push({ type: 'ingredient', quantity: '', name: '' }); // <-- MODIFIED
 };
 const removeIngredient = (index) => {
   form.ingredients.splice(index, 1);
@@ -192,10 +195,11 @@ const addInstruction = () => {
 const removeInstruction = (index) => {
   form.instructions.splice(index, 1);
 };
-
+// --- NEW: Add Header Function ---
 const addHeader = () => {
   form.ingredients.push({ type: 'header', name: '' });
 };
+// ---
 
 // --- NEW: Handle Tag Creation ---
 const handleCreateTag = (val, done) => {
@@ -214,7 +218,10 @@ const handleFileUpload = (file) => {
     return;
   }
   if (!authStore.user) {
-    $q.notify({ color: 'negative', message: 'You must be logged in to upload images.' });
+    $q.notify({
+      color: 'negative',
+      message: 'You must be logged in to upload images.',
+    });
     imageFile.value = null;
     return;
   }
@@ -228,7 +235,9 @@ const handleFileUpload = (file) => {
 
   uploadTask.on(
     'state_changed',
-    () => { /* Handle progress */ },
+    () => {
+      /* Handle progress */
+    },
     (error) => {
       console.error('Upload failed:', error);
       $q.notify({ color: 'negative', message: 'Image upload failed.' });
@@ -244,7 +253,10 @@ const handleFileUpload = (file) => {
   );
 };
 const handleUploadError = () => {
-  $q.notify({ color: 'negative', message: 'Image upload failed. File may be too large or not an image.' });
+  $q.notify({
+    color: 'negative',
+    message: 'Image upload failed. File may be too large or not an image.',
+  });
 };
 const handleRemoveImage = () => {
   form.image_url = '';
@@ -254,13 +266,17 @@ const handleRemoveImage = () => {
 // --- End Uploader Functions ---
 
 const fetchRecipeForEdit = async () => {
-  if (!isEditMode.value) return;
+  if (!isEditMode.value) {
+    // Set default ingredient for new recipes
+    form.ingredients = [{ type: 'ingredient', quantity: '', name: '' }];
+    return;
+  }
   loading.value = true;
   error.value = null;
   try {
     const recipe = await recipeStore.fetchRecipe(recipeId.value); // Use store
     if (recipe.submitted_by_user_id.String !== authStore.user.uid) {
-      throw new Error("You do not have permission to edit this recipe.");
+      throw new Error('You do not have permission to edit this recipe.');
     }
     form.title = recipe.title;
     form.description = recipe.description;
@@ -280,32 +296,60 @@ const fetchRecipeForEdit = async () => {
 
 const handleSubmit = async () => {
   if (isUploading.value) {
-    $q.notify({ color: 'warning', message: 'Please wait for image to finish uploading.' });
+    $q.notify({
+      color: 'warning',
+      message: 'Please wait for image to finish uploading.',
+    });
     return;
   }
 
   isSubmitting.value = true;
   try {
-    // --- MODIFIED: No longer need to parse tags ---
-    const cleanIngredients = form.ingredients.filter(i => i.name && i.name.trim() !== '');
-    const cleanInstructions = form.instructions.filter(i => i.step && i.step.trim() !== '');
+    const cleanIngredients = form.ingredients.filter(
+      (i) => i.name && i.name.trim() !== ''
+    );
+    const cleanInstructions = form.instructions.filter(
+      (i) => i.step && i.step.trim() !== ''
+    );
 
     const payload = {
       id: recipeId.value,
       title: form.title,
       description: form.description,
-      tags: form.tags, // <-- MODIFIED: Already an array
+      tags: form.tags,
       ingredients: cleanIngredients,
       instructions: cleanInstructions,
       image_url: form.image_url,
     };
 
-    await recipeStore.savePrivateRecipe(payload); // Use store
+    // --- MODIFIED: Capture response ---
+    const response = await recipeStore.savePrivateRecipe(payload); // Use store
+    // ---
 
     $q.notify({
       color: 'positive',
-      message: isEditMode.value ? 'Recipe updated!' : 'Recipe saved to your private cookbook!',
+      message: isEditMode.value
+        ? 'Recipe updated!'
+        : 'Recipe saved to your private cookbook!',
     });
+
+    // --- NEW: Check for badges on CREATE ---
+    if (!isEditMode.value) {
+      if (
+        response.new_badges_awarded &&
+        response.new_badges_awarded.length > 0
+      ) {
+        response.new_badges_awarded.forEach((badge) => {
+          $q.notify({
+            color: 'amber-8',
+            icon: 'workspace_premium',
+            message: `Badge Unlocked: ${badge}!`,
+            timeout: 5000,
+          });
+        });
+      }
+    }
+    // ---
 
     router.push('/my-cookbook?tab=private');
   } catch (err) {
@@ -322,13 +366,14 @@ const handleSubmit = async () => {
 const handleSubmitToGuild = async () => {
   $q.dialog({
     title: 'Submit to Guild?',
-    message: 'This will save any pending changes and submit your recipe for Guild review. Are you sure?',
+    message:
+      'This will save any pending changes and submit your recipe for Guild review. Are you sure?',
     cancel: true,
     persistent: true,
     ok: {
       color: 'positive',
-      label: 'Submit'
-    }
+      label: 'Submit',
+    },
   }).onOk(async () => {
     isSubmittingGuild.value = true;
     try {

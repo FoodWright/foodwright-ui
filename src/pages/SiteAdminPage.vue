@@ -6,28 +6,18 @@
 
     <!-- Badge Table -->
     <q-table :rows="badges" :columns="columns" row-key="id" :loading="loading" flat bordered>
+      <!-- === MODIFIED: Add fit="contain" === -->
       <template v-slot:body-cell-icon_url="props">
         <q-td :props="props">
-          <q-avatar v-if="props.value">
-            <q-img :src="props.value" v-if="props.value.startsWith('http')" />
+          <q-avatar v-if="props.value" color="white">
+            <q-img :src="props.value" v-if="props.value.startsWith('http')" referrerpolicy="no-referrer"
+              fit="contain" />
             <q-icon :name="props.value" v-else />
           </q-avatar>
           <span v-else class="text-grey-7">N/A</span>
         </q-td>
       </template>
-
-      <!-- NEW: Rule Description Column -->
-      <template v-slot:body-cell-rule="props">
-        <q-td :props="props">
-          <div class="text-weight-bold">
-            Trigger:
-            <span class="text-primary">{{ props.row.trigger_event }}</span>
-          </div>
-          <div class="text-caption text-grey-8">
-            Rule: {{ formatRule(props.row.rule_config) }}
-          </div>
-        </q-td>
-      </template>
+      <!-- === END MODIFICATION === -->
 
       <template v-slot:body-cell-actions="props">
         <q-td :props="props">
@@ -46,10 +36,10 @@
             </div>
           </q-card-section>
 
-          <!-- === SECTION 1: Badge Details === -->
           <q-card-section class="q-gutter-md">
-            <div class="text-overline">Badge Details</div>
             <q-input v-model="form.name" label="Badge Name" outlined :rules="[(val) => !!val || 'Name is required']" />
+            <q-input v-model="form.rule_key" label="Legacy Rule Key (Optional)" outlined :readonly="isEditMode"
+              hint="e.g., BAKER_3. This is for reference and can be left blank." />
             <q-input v-model="form.description" label="Description" type="textarea" outlined
               :rules="[(val) => !!val || 'Description is required']" />
             <q-input v-model="form.icon_url" label="Icon URL or FontAwesome Name" outlined
@@ -60,29 +50,29 @@
               label="Start Date (YYYY-MM-DDTHH:MM:SSZ)" outlined hint="e.g., 2025-10-01T00:00:00Z" />
             <q-input v-if="form.badge_type === 'EVENT' || form.badge_type === 'SEASONAL'" v-model="form.end_date"
               label="End Date (YYYY-MM-DDTHH:MM:SSZ)" outlined hint="e.g., 2025-10-31T23:59:59Z" />
-          </q-card-section>
 
-          <q-separator class="q-my-md" />
+            <!-- === NEW: Dynamic Rule Builder === -->
+            <q-separator class="q-mt-lg" />
+            <div class="text-h6 q-mb-none">Rule</div>
 
-          <!-- === SECTION 2: Rule Builder === -->
-          <q-card-section class="q-gutter-md">
-            <div class="text-overline">Rule Builder</div>
-            <q-select v-model="form.trigger_event" :options="triggerOptions" label="Trigger Event" outlined emit-value
-              map-options :rules="[(val) => !!val || 'Trigger is required']" hint="When should this rule be checked?" />
+            <q-select v-model="form.trigger_event" :options="triggerOptions" label="When does this check happen?"
+              outlined emit-value map-options :rules="[(val) => !!val || 'Trigger is required']" />
 
-            <q-select v-model="form.rule_config.type" :options="ruleTypeOptions" label="Rule Type" outlined emit-value
-              map-options :rules="[(val) => !!val || 'Rule type is required']" hint="What data are we checking?" />
+            <q-select v-model="form.rule_config.type" :options="ruleOptions" label="What condition is checked?" outlined
+              emit-value map-options :rules="[(val) => !!val || 'Rule Type is required']" />
 
-            <div class="row q-col-gutter-sm items-center">
+            <div v-if="form.rule_config.type" class="row q-col-gutter-sm items-center">
               <q-select v-model="form.rule_config.operator" :options="operatorOptions" label="Operator" outlined
-                emit-value map-options class="col-4" />
-              <q-input v-model.number="form.rule_config.value" label="Value" type="number" outlined class="col-8"
-                :rules="[(val) => val >= 0 || 'Value must be positive']" />
+                emit-value map-options class="col-3" :rules="[(val) => !!val || 'Operator is required']" />
+              <q-input v-model.number="form.rule_config.value" label="Value" type="number" outlined class="col-3"
+                :rules="[(val) => val > 0 || 'Value is required']" />
+              <q-input v-if="showParameter" v-model="form.rule_config.parameter" label="Parameter (e.g. 'baking')"
+                outlined class="col-6" :rules="[(val) => !!val || 'Parameter is required']" />
             </div>
-
-            <q-input v-if="form.rule_config.type === 'COOKS_WITH_TAG'" v-model="form.rule_config.parameter"
-              label="Tag Name" outlined :rules="[(val) => !!val || 'Tag name is required']"
-              hint="e.g., baking, pasta, easy" />
+            <div v-if="form.rule_config.type" class="text-caption text-grey-7">
+              Rule Preview: {{ rulePreview }}
+            </div>
+            <!-- === END NEW === -->
           </q-card-section>
 
           <q-card-actions align="right">
@@ -96,7 +86,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue'; // <-- ADDED computed, watch
 import { useAdminStore } from 'stores/admin';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
@@ -112,27 +102,36 @@ const isEditMode = ref(false);
 const isSubmitting = ref(false);
 const editId = ref(null);
 
-// --- NEW Rule Builder Options ---
+// --- NEW: Rule Builder Options ---
 const triggerOptions = [
-  { label: 'When a user logs a cook', value: 'on_cook' },
-  { label: 'When a recipe is approved', value: 'on_approval' },
+  { label: 'On Recipe Cook', value: 'on_cook' },
+  { label: 'On Recipe Approval', value: 'on_approval' },
+  { label: 'On Private Recipe Save', value: 'on_private_save' },
 ];
 
-const ruleTypeOptions = [
-  { label: 'Total Cooks (by user)', value: 'TOTAL_COOKS' },
-  { label: 'Cooks With Tag (by user)', value: 'COOKS_WITH_TAG' },
-  { label: 'Approved Submissions (by user)', value: 'APPROVED_SUBMISSIONS' },
-  // { label: 'Total Comments (by user)', value: 'TOTAL_COMMENTS' }, // Future
+const ruleOptions = [
+  { label: 'Total Cooks', value: 'TOTAL_COOKS' },
+  { label: 'Cooks With Tag', value: 'COOKS_WITH_TAG' },
+  { label: 'Approved Submissions', value: 'APPROVED_SUBMISSIONS' },
+  { label: 'Total Private Recipes', value: 'TOTAL_PRIVATE_RECIPES' },
 ];
 
 const operatorOptions = [
-  { label: 'Equal to (==)', value: '==' },
-  { label: 'Greater than or equal (>=)', value: '>=' },
-  { label: 'Greater than (>)', value: '>' },
+  { label: '== (Equals)', value: '==' },
+  { label: '>= (Greater or Equal)', value: '>=' },
+  { label: '> (Greater Than)', value: '>' },
 ];
 // ---
 
-const createFreshForm = () => ({
+const defaultRuleConfig = () => ({
+  type: '',
+  operator: '>=',
+  value: 1,
+  parameter: '',
+});
+
+const form = reactive({
+  rule_key: '',
   name: '',
   description: '',
   icon_url: '',
@@ -140,15 +139,46 @@ const createFreshForm = () => ({
   start_date: null,
   end_date: null,
   trigger_event: 'on_cook',
-  rule_config: {
-    type: 'TOTAL_COOKS',
-    operator: '==',
-    value: 1,
-    parameter: '',
-  },
+  rule_config: defaultRuleConfig(),
 });
 
-const form = reactive(createFreshForm());
+// --- NEW: Rule Builder Computed Props ---
+const showParameter = computed(() => {
+  return form.rule_config.type === 'COOKS_WITH_TAG';
+});
+
+const formatRule = (rule) => {
+  if (!rule || !rule.type) return '...';
+  const op = rule.operator;
+  const val = rule.value;
+  switch (rule.type) {
+    case 'TOTAL_COOKS':
+      return `User's total cooks ${op} ${val}`;
+    case 'COOKS_WITH_TAG':
+      return `User's cooks with tag [${rule.parameter}] ${op} ${val}`;
+    case 'APPROVED_SUBMISSIONS':
+      return `User's approved submissions ${op} ${val}`;
+    case 'TOTAL_PRIVATE_RECIPES':
+      return `User's total private recipes ${op} ${val}`;
+    default:
+      return 'Unknown rule';
+  }
+};
+
+const rulePreview = computed(() => {
+  return formatRule(form.rule_config);
+});
+
+// --- NEW: Watcher to clear parameter ---
+watch(
+  () => form.rule_config.type,
+  (newType) => {
+    if (newType !== 'COOKS_WITH_TAG') {
+      form.rule_config.parameter = '';
+    }
+  }
+);
+// ---
 
 const columns = [
   { name: 'icon_url', label: 'Icon', field: 'icon_url', align: 'center' },
@@ -160,9 +190,19 @@ const columns = [
     sortable: true,
   },
   {
-    name: 'rule', // <-- NEW: Replaces rule_key
-    label: 'Rule',
+    name: 'rule_key',
+    label: 'Legacy Key',
+    field: (row) => row.rule_key.String,
     align: 'left',
+    sortable: true,
+  },
+  {
+    name: 'description',
+    label: 'Description',
+    field: 'description',
+    align: 'left',
+    classes: 'ellipsis',
+    style: 'max-width: 300px',
   },
   {
     name: 'badge_type',
@@ -170,6 +210,14 @@ const columns = [
     field: 'badge_type',
     align: 'left',
     sortable: true,
+  },
+  {
+    name: 'rule',
+    label: 'Rule',
+    field: 'rule_config',
+    align: 'left',
+    format: (val) => formatRule(val),
+    style: 'max-width: 300px',
   },
   { name: 'actions', label: 'Actions', field: 'actions', align: 'center' },
 ];
@@ -192,8 +240,16 @@ const fetchBadges = async () => {
 };
 
 const resetForm = () => {
-  Object.assign(form, createFreshForm());
   editId.value = null;
+  form.rule_key = '';
+  form.name = '';
+  form.description = '';
+  form.icon_url = '';
+  form.badge_type = 'MILESTONE';
+  form.start_date = null;
+  form.end_date = null;
+  form.trigger_event = 'on_cook';
+  form.rule_config = defaultRuleConfig();
 };
 
 const openCreateDialog = () => {
@@ -205,41 +261,33 @@ const openCreateDialog = () => {
 const openEditDialog = (badge) => {
   isEditMode.value = true;
   editId.value = badge.id;
-
-  // Populate basic info
+  form.rule_key = badge.rule_key.String;
   form.name = badge.name;
   form.description = badge.description;
-  form.icon_url = badge.icon_url; // Already converted to string by store
+  form.icon_url = badge.icon_url.String || '';
   form.badge_type = badge.badge_type;
   form.start_date = badge.start_date ? badge.start_date.Time : null;
   form.end_date = badge.end_date ? badge.end_date.Time : null;
-
-  // Populate rule info
   form.trigger_event = badge.trigger_event;
-  // Parse the rule_config JSON
-  if (typeof badge.rule_config === 'object' && badge.rule_config !== null) {
-    form.rule_config = { ...badge.rule_config };
-  } else {
-    try {
-      form.rule_config = JSON.parse(badge.rule_config);
-    } catch (e) {
-      console.error('Failed to parse rule_config, resetting.', e);
-      form.rule_config = createFreshForm().rule_config;
-    }
-  }
-
+  form.rule_config = { ...defaultRuleConfig(), ...badge.rule_config }; // Merge with defaults
   showDialog.value = true;
 };
 
 const handleSubmit = async () => {
   isSubmitting.value = true;
 
+  // Prepare payload
   const payload = {
     id: editId.value,
-    ...form,
+    rule_key: form.rule_key || '', // Send empty string, not null
+    name: form.name,
+    description: form.description,
+    icon_url: form.icon_url || '', // Send empty string, not null
+    badge_type: form.badge_type,
     start_date: form.start_date || null,
     end_date: form.end_date || null,
-    // The rule_config object is already in the correct format
+    trigger_event: form.trigger_event,
+    rule_config: form.rule_config,
   };
 
   try {
@@ -258,26 +306,6 @@ const handleSubmit = async () => {
   } finally {
     isSubmitting.value = false;
   }
-};
-
-// NEW: Helper to format the rule for the table
-const formatRule = (config) => {
-  if (!config) return 'N/A';
-  let rule = '';
-  switch (config.type) {
-    case 'TOTAL_COOKS':
-      rule = 'Total Cooks';
-      break;
-    case 'COOKS_WITH_TAG':
-      rule = `Cooks w/ Tag "${config.parameter}"`;
-      break;
-    case 'APPROVED_SUBMISSIONS':
-      rule = 'Approved Submissions';
-      break;
-    default:
-      rule = config.type;
-  }
-  return `${rule} ${config.operator} ${config.value}`;
 };
 
 onMounted(() => {
