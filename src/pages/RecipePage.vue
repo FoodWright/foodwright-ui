@@ -1,11 +1,9 @@
 <template>
   <q-page class="q-pa-md">
-    <!-- Loading Spinner for Page -->
     <div v-if="loading" class="text-center q-pa-xl">
       <q-spinner-dots color="primary" size="3em" />
     </div>
 
-    <!-- Error Message for Page -->
     <div v-if="error" class="q-pa-md">
       <q-banner rounded class="bg-red-1 text-red-8">
         <template v-slot:avatar>
@@ -16,10 +14,8 @@
       <q-btn flat @click="$router.go(-1)" label="Go Back" class="q-mt-md" />
     </div>
 
-    <!-- Recipe Content -->
     <div v-if="recipe" class="recipe-container">
       <div class="row q-col-gutter-lg">
-        <!-- Main Recipe Details -->
         <div class="col-12 col-md-7">
           <q-card flat bordered class="full-height">
             <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
@@ -31,12 +27,17 @@
                 </h4>
 
                 <div>
+                  <q-btn
+                    v-if="authStore.user && recipe.submitted_by_user_id.String === authStore.user.uid && recipe.status === 'private'"
+                    round color="positive" icon="fas fa-shield-alt" @click="confirmSubmit">
+                    <q-tooltip>Submit to Guild</q-tooltip>
+                  </q-btn>
                   <q-btn v-if="authStore.user" flat round :color="isFavorited ? 'primary' : 'grey'"
                     :icon="isFavorited ? 'bookmark' : 'bookmark_border'" @click.prevent="toggleFavorite"
                     class="q-ml-md">
                     <q-tooltip>{{
                       isFavorited ? 'Remove from Cookbook' : 'Add to Cookbook'
-                      }}</q-tooltip>
+                    }}</q-tooltip>
                   </q-btn>
                   <q-btn v-if="authStore.isSiteAdmin" flat round :color="recipe.is_featured ? 'positive' : 'grey'"
                     :icon="recipe.is_featured ? 'star' : 'star_border'" @click.prevent="toggleFeature" class="q-ml-sm">
@@ -61,7 +62,6 @@
                 <q-chip v-for="tag in recipe.tags" :key="tag" outline color="grey-7" :label="tag" />
               </div>
 
-              <!-- === NEW: Guild Rating Section === -->
               <q-separator class="q-my-md" />
               <div>
                 <div class="text-h6 q-mb-xs">Guild Rating</div>
@@ -79,13 +79,10 @@
                   No ratings yet. Be the first to log a cook!
                 </div>
               </div>
-              <!-- === END NEW === -->
             </q-card-section>
             <q-separator />
 
-            <!-- Ingredients List -->
             <q-card-section>
-              <!-- === MODIFIED: Add header with toggle === -->
               <div class="row items-center justify-between q-mb-sm">
                 <div class="text-h6">Ingredients</div>
                 <q-btn-toggle v-if="hasMetricIngredients" v-model="displayMode" size="sm" toggle-color="primary"
@@ -94,21 +91,16 @@
                     { label: 'Metric', value: 'metric' },
                   ]" />
               </div>
-              <!-- === END MODIFICATION === -->
-
               <div v-if="!recipe.ingredients || recipe.ingredients.length === 0" class="text-grey-7">
                 No ingredients listed.
               </div>
-              <!-- === MODIFIED: Use <template> for v-for === -->
               <q-list v-else dense>
                 <template v-for="(item, index) in recipe.ingredients" :key="index">
-                  <!-- Case 1: Header -->
                   <q-item-label v-if="item.type === 'header'" header class="text-primary text-weight-bold q-mt-md"
                     style="font-size: 1.1em">
                     {{ item.name }}
                   </q-item-label>
 
-                  <!-- Case 2: Ingredient (or old data) -->
                   <q-item v-if="item.type === 'ingredient' || !item.type" class="q-pl-none">
                     <q-item-section avatar style="min-width: 40px">
                       <q-icon color="primary" name="check_circle_outline" />
@@ -119,18 +111,16 @@
                         </strong>
                         <span class="q-ml-xs">{{
                           getConverted(item).unit
-                          }}</span>
+                        }}</span>
                         <span class="q-ml-sm">{{ item.name }}</span>
                       </q-item-label>
                     </q-item-section>
                   </q-item>
                 </template>
               </q-list>
-              <!-- === END MODIFICATION === -->
             </q-card-section>
             <q-separator />
 
-            <!-- Instructions List -->
             <q-card-section>
               <div class="text-h6 q-mb-sm">Instructions</div>
               <div v-if="!recipe.instructions || recipe.instructions.length === 0" class="text-grey-7">
@@ -146,7 +136,7 @@
                   <q-item-section>
                     <q-item-label class="text-body1">{{
                       item.step
-                      }}</q-item-label>
+                    }}</q-item-label>
                   </q-item-section>
                 </q-item>
               </q-list>
@@ -154,9 +144,7 @@
           </q-card>
         </div>
 
-        <!-- Right Column: Logs & Comments -->
         <div class="col-12 col-md-5">
-          <!-- "I Made This!" Button Card -->
           <q-card flat bordered class="q-mb-md">
             <q-card-section class="text-center">
               <div class="row items-center justify-between no-wrap">
@@ -174,7 +162,6 @@
             </q-card-section>
           </q-card>
 
-          <!-- Guild Cook's Log -->
           <div class="text-h6 q-mb-sm">Guild Cook's Log</div>
 
           <div v-if="logsLoading" class="text-center q-pa-md">
@@ -189,7 +176,6 @@
             <div>Be the first in the guild to log this cook!</div>
           </div>
 
-          <!-- Log List -->
           <q-list v-else separator>
             <q-item v-for="log in cookLogs" :key="log.id" class="q-py-md">
               <q-item-section>
@@ -211,7 +197,6 @@
             </q-item>
           </q-list>
 
-          <!-- === NEW: Comments Section === -->
           <div class="text-h6 q-mb-sm q-mt-lg">Guild Comments</div>
 
           <q-card v-if="authStore.user" flat bordered class="q-mb-md">
@@ -229,7 +214,6 @@
             You must be logged in to post a comment.
           </div>
 
-          <!-- Comments Loading/Error -->
           <div v-if="commentsLoading" class="text-center q-pa-md">
             <q-spinner-dots color="primary" size="2em" />
           </div>
@@ -237,13 +221,11 @@
             Error fetching comments: {{ commentsError }}
           </div>
 
-          <!-- No Comments State -->
           <div v-if="comments.length === 0 && !commentsLoading" class="text-center text-grey-7 q-pa-md">
             <q-icon name="forum" size="2em" class="q-mb-sm" />
             <div>Be the first to post a comment!</div>
           </div>
 
-          <!-- Comments List -->
           <q-list v-else separator>
             <q-item v-for="comment in comments" :key="comment.id" class="q-py-md">
               <q-item-section>
@@ -262,12 +244,10 @@
               </q-item-section>
             </q-item>
           </q-list>
-          <!-- === END: Comments Section === -->
         </div>
       </div>
     </div>
 
-    <!-- "Log Your Cook" Dialog (Modal) -->
     <q-dialog v-model="showLogDialog" persistent>
       <q-card style="min-width: 350px">
         <q-form @submit="handleLogSubmit">
@@ -295,7 +275,7 @@
 
 <script setup>
 import { ref, onMounted, reactive, computed, watch } from 'vue'; // <-- ADDED watch
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router'; // <-- MODIFIED
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
 import { useAdminStore } from 'stores/admin';
@@ -314,6 +294,7 @@ const userStore = useUserStore(); // <-- NEW
 const { recipe, cookLogs, comments } = storeToRefs(recipeStore);
 const { profile } = storeToRefs(userStore); // <-- NEW
 const $q = useQuasar();
+const router = useRouter(); // <-- NEW
 
 const recipeId = parseInt(route.params.id.split('-')[0], 10); // <-- Use new slug parsing
 
@@ -481,6 +462,38 @@ const handleCommentSubmit = async () => {
     isSubmittingComment.value = false;
   }
 };
+
+// === NEW FUNCTION ===
+const confirmSubmit = () => {
+  if (!recipe.value) return;
+  $q.dialog({
+    title: 'Submit to Guild?',
+    message: `Are you sure you want to submit "${recipe.value.title}" for Guild review? It will be locked for editing while pending.`,
+    cancel: true,
+    persistent: true,
+    ok: {
+      color: 'positive',
+      label: 'Submit',
+    },
+  }).onOk(async () => {
+    try {
+      await recipeStore.submitToGuild(recipeId);
+      $q.notify({
+        color: 'positive',
+        message: 'Recipe submitted for review!',
+      });
+      // Navigate away to the submissions page
+      router.push('/my-submissions');
+    } catch (err) {
+      console.error('Failed to submit recipe:', err);
+      $q.notify({
+        color: 'negative',
+        message: `Submission failed: ${err.message}`,
+      });
+    }
+  });
+};
+// === END NEW ===
 
 const formatTimeAgo = (isoString) => {
   const date = new Date(isoString);

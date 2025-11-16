@@ -6,23 +6,16 @@
           <q-btn flat dense no-caps to="/" class="text-h6">Food Wright</q-btn>
         </q-toolbar-title>
 
-        <!-- --- User Links (Desktop Only) --- -->
-        <!-- These hide on 'xs' screens -->
         <div v-if="authStore.user" class="q-gutter-sm gt-xs">
           <q-btn flat dense to="/my-cookbook" label="My Cookbook" icon="book" />
-          <q-btn flat dense to="/submit" label="Submit Recipe" icon="add_circle_outline" />
+          <q-btn flat dense to="/my-cookbook/private/new" label="Add Recipe" icon="add_circle_outline" />
         </div>
 
         <q-space />
 
-        <!-- --- MODIFIED: Login Button (Logged Out) --- -->
         <q-btn v-if="!authStore.user" flat to="/login" label="Login / Sign Up" />
-        <!-- === END MODIFICATION === -->
-
-        <!-- --- NEW: Unified User Menu (Logged In) --- -->
         <div v-if="authStore.user">
           <q-btn flat dense no-caps class="q-ml-md">
-            <!-- === MODIFIED: Avatar with Fallback + Referrer Policy === -->
             <q-avatar size="32px" :color="authStore.user.photoURL ? 'white' : 'secondary'"
               :text-color="authStore.user.photoURL ? 'primary' : 'white'">
               <img v-if="authStore.user.photoURL" :src="authStore.user.photoURL" alt="User avatar"
@@ -31,17 +24,11 @@
                 {{ userInitials }}
               </template>
             </q-avatar>
-            <!-- === END MODIFICATION === -->
-
-            <!-- Desktop-only Name -->
             <div class="q-ml-sm gt-xs">{{ authStore.user.displayName }}</div>
-            <!-- Dropdown Arrow -->
             <q-icon name="arrow_drop_down" class="q-ml-xs" />
 
-            <!-- --- Dropdown Menu --- -->
             <q-menu auto-close>
               <q-list style="min-width: 220px">
-                <!-- Profile Link -->
                 <q-item clickable :to="`/user/${authStore.user.uid}`">
                   <q-item-section avatar><q-icon name="person" /></q-item-section>
                   <q-item-section>My Profile</q-item-section>
@@ -49,31 +36,22 @@
 
                 <q-separator />
 
-                <!-- Mobile-Only Links (re-appear here) -->
-                <!-- These hide on 'sm' and larger screens -->
                 <q-item clickable to="/my-cookbook" class="lt-sm">
                   <q-item-section avatar><q-icon name="book" /></q-item-section>
                   <q-item-section>My Cookbook</q-item-section>
                 </q-item>
-                <q-item clickable to="/submit" class="lt-sm">
+                <q-item clickable to="/my-cookbook/private/new" class="lt-sm">
                   <q-item-section avatar><q-icon name="add_circle_outline" /></q-item-section>
-                  <q-item-section>Submit Recipe</q-item-section>
+                  <q-item-section>Add Recipe</q-item-section>
                 </q-item>
-
-                <!-- All-Sizes Links -->
                 <q-item clickable to="/my-submissions">
-                  <!-- ... existing code ... -->
                   <q-item-section>My Submissions</q-item-section>
                 </q-item>
 
-                <!-- === NEW: Tool Link === -->
                 <q-item clickable to="/tools/converter">
                   <q-item-section avatar><q-icon name="calculate" /></q-item-section>
                   <q-item-section>Unit Converter</q-item-section>
                 </q-item>
-                <!-- === END NEW === -->
-
-                <!-- Admin Links -->
                 <div v-if="authStore.isAdmin || authStore.isSiteAdmin">
                   <q-separator />
                   <q-item-label header>Admin</q-item-label>
@@ -89,12 +67,10 @@
 
                 <q-separator />
 
-                <!-- === MODIFIED: Logout Button === -->
                 <q-item clickable @click="handleLogout()">
                   <q-item-section avatar><q-icon name="logout" /></q-item-section>
                   <q-item-section>Logout</q-item-section>
                 </q-item>
-                <!-- === END MODIFICATION === -->
               </q-list>
             </q-menu>
           </q-btn>
