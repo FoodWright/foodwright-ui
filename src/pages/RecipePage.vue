@@ -30,14 +30,23 @@
                   {{ recipe.title }}
                 </h4>
 
-                <q-btn v-if="authStore.user" flat round :color="isFavorited ? 'primary' : 'grey'" :icon="isFavorited ? 'bookmark' : 'bookmark_border'
-                  " @click.prevent="toggleFavorite" class="q-ml-md">
-                  <q-tooltip>{{ isFavorited ? 'Remove from Cookbook' : 'Add to Cookbook' }}</q-tooltip>
-                </q-btn>
-                <q-btn v-if="authStore.isSiteAdmin" flat round :color="recipe.is_featured ? 'positive' : 'grey'"
-                  :icon="recipe.is_featured ? 'star' : 'star_border'" @click.prevent="toggleFeature" class="q-ml-sm">
-                  <q-tooltip>{{ recipe.is_featured ? 'Remove from Featured' : 'Mark as Featured' }}</q-tooltip>
-                </q-btn>
+                <div>
+                  <q-btn v-if="authStore.user" flat round :color="isFavorited ? 'primary' : 'grey'"
+                    :icon="isFavorited ? 'bookmark' : 'bookmark_border'" @click.prevent="toggleFavorite"
+                    class="q-ml-md">
+                    <q-tooltip>{{
+                      isFavorited ? 'Remove from Cookbook' : 'Add to Cookbook'
+                      }}</q-tooltip>
+                  </q-btn>
+                  <q-btn v-if="authStore.isSiteAdmin" flat round :color="recipe.is_featured ? 'positive' : 'grey'"
+                    :icon="recipe.is_featured ? 'star' : 'star_border'" @click.prevent="toggleFeature" class="q-ml-sm">
+                    <q-tooltip>{{
+                      recipe.is_featured
+                        ? 'Remove from Featured'
+                        : 'Mark as Featured'
+                    }}</q-tooltip>
+                  </q-btn>
+                </div>
               </div>
               <p class="text-body1 text-grey-8">{{ recipe.description }}</p>
 
@@ -62,7 +71,8 @@
                     {{ recipe.avg_rating.toFixed(1) }} out of 5
                   </div>
                   <div class="text-caption text-grey-7">
-                    ({{ recipe.cook_count }} {{ recipe.cook_count === 1 ? 'rating' : 'ratings' }})
+                    ({{ recipe.cook_count }}
+                    {{ recipe.cook_count === 1 ? 'rating' : 'ratings' }})
                   </div>
                 </div>
                 <div v-else class="text-body1 text-grey-7">
@@ -70,16 +80,26 @@
                 </div>
               </div>
               <!-- === END NEW === -->
-
             </q-card-section>
             <q-separator />
 
             <!-- Ingredients List -->
             <q-card-section>
-              <div class="text-h6 q-mb-sm">Ingredients</div>
+              <!-- === MODIFIED: Add header with toggle === -->
+              <div class="row items-center justify-between q-mb-sm">
+                <div class="text-h6">Ingredients</div>
+                <q-btn-toggle v-if="hasMetricIngredients" v-model="displayMode" size="sm" toggle-color="primary"
+                  :options="[
+                    { label: 'Imperial', value: 'imperial' },
+                    { label: 'Metric', value: 'metric' },
+                  ]" />
+              </div>
+              <!-- === END MODIFICATION === -->
+
               <div v-if="!recipe.ingredients || recipe.ingredients.length === 0" class="text-grey-7">
                 No ingredients listed.
               </div>
+              <!-- === MODIFIED: Use <template> for v-for === -->
               <q-list v-else dense>
                 <template v-for="(item, index) in recipe.ingredients" :key="index">
                   <!-- Case 1: Header -->
@@ -95,14 +115,18 @@
                     </q-item-section>
                     <q-item-section>
                       <q-item-label>
-                        <strong v-if="item.quantity">{{ item.quantity }}
+                        <strong v-if="getConverted(item).quantity">{{ getConverted(item).quantity }}
                         </strong>
-                        {{ item.name }}
+                        <span class="q-ml-xs">{{
+                          getConverted(item).unit
+                          }}</span>
+                        <span class="q-ml-sm">{{ item.name }}</span>
                       </q-item-label>
                     </q-item-section>
                   </q-item>
                 </template>
               </q-list>
+              <!-- === END MODIFICATION === -->
             </q-card-section>
             <q-separator />
 
@@ -122,7 +146,7 @@
                   <q-item-section>
                     <q-item-label class="text-body1">{{
                       item.step
-                    }}</q-item-label>
+                      }}</q-item-label>
                   </q-item-section>
                 </q-item>
               </q-list>
@@ -239,7 +263,6 @@
             </q-item>
           </q-list>
           <!-- === END: Comments Section === -->
-
         </div>
       </div>
     </div>
@@ -271,25 +294,28 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, watch } from 'vue'; // <-- ADDED watch
 import { useRoute } from 'vue-router';
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
 import { useAdminStore } from 'stores/admin';
+import { useUserStore } from 'stores/user'; // <-- NEW
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
+// --- NEW: Import Conversion Library ---
+import { getConvertedIngredientDisplay } from 'src/services/unitConverter';
+// ---
 
 const route = useRoute();
 const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
 const adminStore = useAdminStore();
+const userStore = useUserStore(); // <-- NEW
 const { recipe, cookLogs, comments } = storeToRefs(recipeStore);
+const { profile } = storeToRefs(userStore); // <-- NEW
 const $q = useQuasar();
 
-// const recipeId = parseInt(route.params.id, 10);
-
-const idParam = route.params.id; // "9-simple-sourdough"
-const recipeId = parseInt(idParam.split('-')[0], 10); // 9
+const recipeId = parseInt(route.params.id.split('-')[0], 10); // <-- Use new slug parsing
 
 const loading = ref(false);
 const error = ref(null);
@@ -307,23 +333,39 @@ const logForm = reactive({
   rating: 0,
 });
 
-const toggleFeature = async () => {
-  if (!recipe.value) return;
-  try {
-    await adminStore.toggleRecipeFeature(recipeId);
-    $q.notify({
-      color: recipe.value.is_featured ? 'positive' : 'primary',
-      message: recipe.value.is_featured ? 'Recipe marked as featured!' : 'Recipe removed from featured.',
-      icon: recipe.value.is_featured ? 'star' : 'star_border',
-    });
-  } catch (err) {
-    console.error('Failed to toggle feature:', err);
-    $q.notify({
-      color: 'negative',
-      message: `Update failed: ${err.message}`,
-    });
+// --- NEW: Unit Conversion State ---
+const displayMode = ref('imperial'); // Default
+
+// Watch for the user's profile to load, then set their preference
+watch(
+  profile,
+  (newProfile) => {
+    if (newProfile && newProfile.unit_preference) {
+      displayMode.value = newProfile.unit_preference;
+    }
+  },
+  { immediate: true }
+);
+
+// Computed prop to check if we should even show the toggle
+const hasMetricIngredients = computed(() => {
+  if (!recipe.value || !recipe.value.ingredients) return false;
+  // Show if at least one ingredient is not 'each' or 'header'
+  return recipe.value.ingredients.some(
+    (i) => i.type === 'ingredient' && i.unit !== 'each'
+  );
+});
+
+// Helper function to call the conversion library
+const getConverted = (item) => {
+  if (item.type === 'header') return {};
+  // Handle old data structure gracefully
+  if (!item.quantity_str && item.quantity) {
+    return { quantity: item.quantity, unit: '', name: item.name };
   }
+  return getConvertedIngredientDisplay(item, displayMode.value);
 };
+// ---
 
 const fetchRecipe = async () => {
   loading.value = true;
@@ -444,16 +486,16 @@ const formatTimeAgo = (isoString) => {
   const date = new Date(isoString);
   const seconds = Math.floor((new Date() - date) / 1000);
   let interval = seconds / 31536000;
-  if (interval > 1) return Math.floor(interval) + " years ago";
+  if (interval > 1) return Math.floor(interval) + ' years ago';
   interval = seconds / 2592000;
-  if (interval > 1) return Math.floor(interval) + " months ago";
+  if (interval > 1) return Math.floor(interval) + ' months ago';
   interval = seconds / 86400;
-  if (interval > 1) return Math.floor(interval) + " days ago";
+  if (interval > 1) return Math.floor(interval) + ' days ago';
   interval = seconds / 3600;
-  if (interval > 1) return Math.floor(interval) + " hours ago";
+  if (interval > 1) return Math.floor(interval) + ' hours ago';
   interval = seconds / 60;
-  if (interval > 1) return Math.floor(interval) + " minutes ago";
-  return Math.floor(seconds) + " seconds ago";
+  if (interval > 1) return Math.floor(interval) + ' minutes ago';
+  return Math.floor(seconds) + ' seconds ago';
 };
 
 const isFavorited = computed(() => {
@@ -479,13 +521,13 @@ const toggleFavorite = async () => {
       $q.notify({
         color: 'primary',
         message: 'Removed from cookbook',
-        icon: 'bookmark_remove'
+        icon: 'bookmark_remove',
       });
     } else {
       $q.notify({
         color: 'positive',
         message: 'Added to cookbook!',
-        icon: 'bookmark_add'
+        icon: 'bookmark_add',
       });
     }
   } catch (err) {
@@ -497,10 +539,33 @@ const toggleFavorite = async () => {
   }
 };
 
+// --- NEW: Handler for Site Admin ---
+const toggleFeature = async () => {
+  if (!recipe.value) return;
+  try {
+    await adminStore.toggleRecipeFeature(recipeId);
+    $q.notify({
+      color: recipe.value.is_featured ? 'positive' : 'primary',
+      message: recipe.value.is_featured
+        ? 'Recipe marked as featured!'
+        : 'Recipe removed from featured.',
+      icon: recipe.value.is_featured ? 'star' : 'star_border',
+    });
+  } catch (err) {
+    console.error('Failed to toggle feature:', err);
+    $q.notify({
+      color: 'negative',
+      message: `Update failed: ${err.message}`,
+    });
+  }
+};
+
 onMounted(() => {
   fetchRecipe();
   fetchCookLogs();
   fetchComments();
+  // We don't need to fetch user profile here,
+  // it's fetched by IndexPage or the main auth flow.
 });
 </script>
 

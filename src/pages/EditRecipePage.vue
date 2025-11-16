@@ -82,8 +82,9 @@
             <!-- Case 1: Ingredient -->
             <template v-if="ingredient.type === 'ingredient' || !ingredient.type">
               <!-- Added !ingredient.type for backward compatibility before migration -->
-              <q-input v-model="ingredient.quantity" label="Quantity (e.g. 1 cup)" outlined dense class="col" />
-              <q-input v-model="ingredient.name" label="Name (e.g. Flour)" outlined dense class="col-6" />
+              <q-input v-model="ingredient.quantity_str" label="Qty (e.g. 1 1/2)" outlined dense class="col-3" />
+              <q-select v-model="ingredient.unit" label="Unit" :options="allUnits" group outlined dense class="col" />
+              <q-input v-model="ingredient.name" label="Name (e.g. Flour)" outlined dense class="col-5" />
             </template>
 
             <!-- Case 2: Header -->
@@ -141,8 +142,8 @@
 <script setup>
 import { reactive, ref, onMounted, computed, getCurrentInstance } from 'vue';
 import { useAuthStore } from 'stores/auth';
-import { useRecipeStore } from 'stores/recipes'; // <-- NEW
-import { storeToRefs } from 'pinia'; // <-- NEW
+import { useRecipeStore } from 'stores/recipes';
+import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import { useRouter, useRoute } from 'vue-router';
 import {
@@ -150,10 +151,13 @@ import {
   uploadBytesResumable,
   getDownloadURL,
 } from 'firebase/storage';
+// --- NEW: Import Conversion Library ---
+import { allUnits } from 'src/services/unitConverter';
+// ---
 
 const authStore = useAuthStore();
-const recipeStore = useRecipeStore(); // <-- NEW
-const { tags: availableTags } = storeToRefs(recipeStore); // <-- NEW
+const recipeStore = useRecipeStore();
+const { tags: availableTags } = storeToRefs(recipeStore);
 const $q = useQuasar();
 const router = useRouter();
 const route = useRoute();
@@ -174,7 +178,7 @@ const isEditMode = computed(() => !!recipeId.value);
 const form = reactive({
   title: '',
   description: '',
-  tags: [], // <-- MODIFIED: Now an array
+  tags: [],
   xp: 0,
   status: 'private',
   ingredients: [],
@@ -182,9 +186,14 @@ const form = reactive({
   image_url: '',
 });
 
-// ... (ingredients/instructions functions are unchanged) ...
+// --- MODIFIED: Use new ingredient structure ---
 const addIngredient = () => {
-  form.ingredients.push({ type: 'ingredient', quantity: '', name: '' }); // <-- MODIFIED
+  form.ingredients.push({
+    type: 'ingredient',
+    quantity_str: '',
+    unit: 'each',
+    name: '',
+  });
 };
 const removeIngredient = (index) => {
   form.ingredients.splice(index, 1);
@@ -195,18 +204,15 @@ const addInstruction = () => {
 const removeInstruction = (index) => {
   form.instructions.splice(index, 1);
 };
-// --- NEW: Add Header Function ---
 const addHeader = () => {
   form.ingredients.push({ type: 'header', name: '' });
 };
 // ---
 
-// --- NEW: Handle Tag Creation ---
+// --- Handle Tag Creation (unchanged) ---
 const handleCreateTag = (val, done) => {
   const newTag = val.trim().toLowerCase();
   if (newTag.length > 0 && !form.tags.includes(newTag)) {
-    // We can optionally add it to the availableTags list for this session
-    // availableTags.value.push(newTag);
     done(newTag, 'add-unique');
   }
 };
@@ -268,7 +274,9 @@ const handleRemoveImage = () => {
 const fetchRecipeForEdit = async () => {
   if (!isEditMode.value) {
     // Set default ingredient for new recipes
-    form.ingredients = [{ type: 'ingredient', quantity: '', name: '' }];
+    form.ingredients = [
+      { type: 'ingredient', quantity_str: '', unit: 'each', name: '' },
+    ];
     return;
   }
   loading.value = true;
@@ -280,7 +288,7 @@ const fetchRecipeForEdit = async () => {
     }
     form.title = recipe.title;
     form.description = recipe.description;
-    form.tags = recipe.tags || []; // <-- MODIFIED: Already an array
+    form.tags = recipe.tags || [];
     form.xp = recipe.xp;
     form.status = recipe.status;
     form.ingredients = recipe.ingredients || [];
@@ -305,9 +313,19 @@ const handleSubmit = async () => {
 
   isSubmitting.value = true;
   try {
-    const cleanIngredients = form.ingredients.filter(
-      (i) => i.name && i.name.trim() !== ''
-    );
+    // --- MODIFIED: Filter logic ---
+    const cleanIngredients = form.ingredients.filter((i) => {
+      if (i.type === 'header') {
+        return i.name && i.name.trim() !== '';
+      }
+      return (
+        i.name &&
+        i.name.trim() !== '' &&
+        i.quantity_str &&
+        String(i.quantity_str).trim() !== ''
+      );
+    });
+    // ---
     const cleanInstructions = form.instructions.filter(
       (i) => i.step && i.step.trim() !== ''
     );
@@ -334,7 +352,7 @@ const handleSubmit = async () => {
     });
 
     // --- NEW: Check for badges on CREATE ---
-    if (!isEditMode.value) {
+    if (!isEditMode.value && response) {
       if (
         response.new_badges_awarded &&
         response.new_badges_awarded.length > 0
@@ -378,7 +396,16 @@ const handleSubmitToGuild = async () => {
     isSubmittingGuild.value = true;
     try {
       // First, save any pending changes
+      // We'll call handleSubmit but wait for it to finish
+      // Note: handleSubmit() will show its own notifications
       await handleSubmit();
+
+      // Now, we can proceed to submit, assuming handleSubmit was successful
+      // We must check if `isSubmitting` (from handleSubmit) is false
+      if (isSubmitting.value) {
+        // This should not happen if we await, but as a safeguard
+        return;
+      }
 
       // Then, submit it
       await recipeStore.submitToGuild(recipeId.value); // Use store
