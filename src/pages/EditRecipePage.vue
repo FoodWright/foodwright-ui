@@ -52,10 +52,8 @@
             </q-btn>
           </q-img>
 
-          <!-- === MODIFIED: Tags Input === -->
           <q-select v-model="form.tags" label="Tags" hint="Select existing tags or type to create new ones." outlined
             multiple use-chips use-input @new-value="handleCreateTag" :options="availableTags" class="q-mt-md" />
-          <!-- === END MODIFICATION === -->
 
           <q-input v-model.number="form.xp" type="number" label="XP" outlined class="q-mt-md" readonly disable
             hint="XP (10-100) will be assigned if you submit to the Guild." />
@@ -68,7 +66,6 @@
           <div class="row items-center justify-between q-mb-sm">
             <div class="text-h6">Ingredients</div>
             <div>
-              <!-- === MODIFIED: Added two buttons === -->
               <q-btn label="Add Header" @click="addHeader" color="grey-7" flat icon="title" dense>
                 <q-tooltip>Add a section header (e.g. "Filling")</q-tooltip>
               </q-btn>
@@ -81,9 +78,9 @@
             class="row items-center q-gutter-sm q-mb-sm">
             <!-- Case 1: Ingredient -->
             <template v-if="ingredient.type === 'ingredient' || !ingredient.type">
-              <!-- Added !ingredient.type for backward compatibility before migration -->
+              <!-- Added !ingredient.type for backward compatibility -->
               <q-input v-model="ingredient.quantity_str" label="Qty (e.g. 1 1/2)" outlined dense class="col-3" />
-              <q-select v-model="ingredient.unit" label="Unit" :options="allUnits" group outlined dense class="col" />
+              <q-select v-model="ingredient.unit" label="Unit" :options="unitOptions" outlined dense class="col" />
               <q-input v-model="ingredient.name" label="Name (e.g. Flour)" outlined dense class="col-5" />
             </template>
 
@@ -143,6 +140,7 @@
 import { reactive, ref, onMounted, computed, getCurrentInstance } from 'vue';
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
+import { useUserStore } from 'stores/user'; // <-- NEW
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import { useRouter, useRoute } from 'vue-router';
@@ -152,12 +150,14 @@ import {
   getDownloadURL,
 } from 'firebase/storage';
 // --- NEW: Import Conversion Library ---
-import { allUnits } from 'src/services/unitConverter';
+import { imperialUnits, metricUnits } from 'src/services/unitConverter';
 // ---
 
 const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
+const userStore = useUserStore(); // <-- NEW
 const { tags: availableTags } = storeToRefs(recipeStore);
+const { profile } = storeToRefs(userStore); // <-- NEW
 const $q = useQuasar();
 const router = useRouter();
 const route = useRoute();
@@ -186,6 +186,15 @@ const form = reactive({
   image_url: '',
 });
 
+// --- NEW: Computed prop for units based on user preference ---
+const unitOptions = computed(() => {
+  if (profile.value && profile.value.unit_preference === 'metric') {
+    return metricUnits;
+  }
+  return imperialUnits; // Default to imperial
+});
+// ---
+
 // --- MODIFIED: Use new ingredient structure ---
 const addIngredient = () => {
   form.ingredients.push({
@@ -209,16 +218,13 @@ const addHeader = () => {
 };
 // ---
 
-// --- Handle Tag Creation (unchanged) ---
 const handleCreateTag = (val, done) => {
   const newTag = val.trim().toLowerCase();
   if (newTag.length > 0 && !form.tags.includes(newTag)) {
     done(newTag, 'add-unique');
   }
 };
-// ---
 
-// --- Firebase Uploader Functions (unchanged) ---
 const handleFileUpload = (file) => {
   if (!file) {
     return;
@@ -258,18 +264,19 @@ const handleFileUpload = (file) => {
     }
   );
 };
+
 const handleUploadError = () => {
   $q.notify({
     color: 'negative',
     message: 'Image upload failed. File may be too large or not an image.',
   });
 };
+
 const handleRemoveImage = () => {
   form.image_url = '';
   imageFile.value = null;
   $q.notify({ color: 'info', message: 'Image selection cleared.' });
 };
-// --- End Uploader Functions ---
 
 const fetchRecipeForEdit = async () => {
   if (!isEditMode.value) {
@@ -340,9 +347,7 @@ const handleSubmit = async () => {
       image_url: form.image_url,
     };
 
-    // --- MODIFIED: Capture response ---
     const response = await recipeStore.savePrivateRecipe(payload); // Use store
-    // ---
 
     $q.notify({
       color: 'positive',
@@ -396,18 +401,12 @@ const handleSubmitToGuild = async () => {
     isSubmittingGuild.value = true;
     try {
       // First, save any pending changes
-      // We'll call handleSubmit but wait for it to finish
-      // Note: handleSubmit() will show its own notifications
       await handleSubmit();
 
-      // Now, we can proceed to submit, assuming handleSubmit was successful
-      // We must check if `isSubmitting` (from handleSubmit) is false
       if (isSubmitting.value) {
-        // This should not happen if we await, but as a safeguard
         return;
       }
 
-      // Then, submit it
       await recipeStore.submitToGuild(recipeId.value); // Use store
 
       $q.notify({
@@ -429,7 +428,11 @@ const handleSubmitToGuild = async () => {
 };
 
 onMounted(() => {
-  recipeStore.fetchTags(); // <-- NEW
+  recipeStore.fetchTags();
+  // Fetch user profile to get preferences, if not already fetched
+  if (!profile.value) {
+    userStore.fetchProfileAndFavorites();
+  }
   fetchRecipeForEdit();
 });
 </script>

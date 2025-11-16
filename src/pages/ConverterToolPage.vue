@@ -13,7 +13,7 @@
             <q-input v-model="form.quantity" label="Quantity" outlined dense placeholder="e.g., 1 1/2" />
           </div>
           <div class="col-12 col-sm-6">
-            <q-select v-model="form.fromUnit" label="From Unit" :options="allUnits" group outlined dense />
+            <q-select v-model="form.fromUnit" label="From Unit" :options="allUnitsFlat" outlined dense />
           </div>
         </div>
 
@@ -44,7 +44,7 @@
 <script setup>
 import { reactive, computed } from 'vue';
 import {
-  allUnits,
+  allUnitsFlat,
   parseQuantity,
   convert,
 } from 'src/services/unitConverter';

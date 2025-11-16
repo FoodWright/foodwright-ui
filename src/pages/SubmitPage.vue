@@ -36,10 +36,8 @@
             </q-btn>
           </q-img>
 
-          <!-- === MODIFIED: Tags Input === -->
           <q-select v-model="form.tags" label="Tags" hint="Select existing tags or type to create new ones." outlined
             multiple use-chips use-input @new-value="handleCreateTag" :options="availableTags" class="q-mt-md" />
-          <!-- === END MODIFICATION === -->
 
           <q-input v-model.number="form.xp" label="Suggested XP *" type="number" :rules="[
             (val) => (val && val > 0) || 'Suggest a fair XP value',
@@ -54,7 +52,6 @@
           <div class="row items-center justify-between q-mb-sm">
             <div class="text-h6">Ingredients</div>
             <div>
-              <!-- === MODIFIED: Added two buttons === -->
               <q-btn label="Add Header" @click="addHeader" color="grey-7" flat icon="title" dense>
                 <q-tooltip>Add a section header (e.g. "Filling")</q-tooltip>
               </q-btn>
@@ -68,7 +65,7 @@
             <!-- Case 1: Ingredient -->
             <template v-if="ingredient.type === 'ingredient' || !ingredient.type">
               <q-input v-model="ingredient.quantity_str" label="Qty (e.g. 1 1/2)" outlined dense class="col-3" />
-              <q-select v-model="ingredient.unit" label="Unit" :options="allUnits" group outlined dense class="col" />
+              <q-select v-model="ingredient.unit" label="Unit" :options="allUnits" outlined dense class="col" />
               <q-input v-model="ingredient.name" label="Name (e.g. Flour)" outlined dense class="col-5" />
             </template>
 
@@ -117,10 +114,10 @@
 </template>
 
 <script setup>
-import { reactive, ref, getCurrentInstance, onMounted } from 'vue'; // Added onMounted
+import { reactive, ref, getCurrentInstance, onMounted } from 'vue';
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
-import { storeToRefs } from 'pinia'; // <-- NEW
+import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
 import {
@@ -134,7 +131,7 @@ import { allUnits } from 'src/services/unitConverter';
 
 const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
-const { tags: availableTags } = storeToRefs(recipeStore); // <-- NEW: Get tags from store
+const { tags: availableTags } = storeToRefs(recipeStore);
 const $q = useQuasar();
 const router = useRouter();
 
@@ -181,16 +178,13 @@ const addHeader = () => {
 };
 // ---
 
-// --- NEW: Handle Tag Creation ---
 const handleCreateTag = (val, done) => {
   const newTag = val.trim().toLowerCase();
   if (newTag.length > 0 && !form.tags.includes(newTag)) {
     done(newTag, 'add-unique');
   }
 };
-// ---
 
-// --- Firebase Uploader Functions (unchanged) ---
 const handleFileUpload = (file) => {
   if (!file) {
     return;
@@ -243,7 +237,6 @@ const handleRemoveImage = () => {
   imageFile.value = null;
   $q.notify({ color: 'info', message: 'Image selection cleared.' });
 };
-// --- End Uploader Functions ---
 
 const handleSubmit = async () => {
   if (isUploading.value) {
@@ -305,7 +298,6 @@ const handleSubmit = async () => {
   }
 };
 
-// --- NEW: Fetch tags on load ---
 onMounted(() => {
   recipeStore.fetchTags();
 });

@@ -35,17 +35,50 @@ const units = {
   '': { type: 'each', toBase: 1, system: 'imperial' }, // Handle blank unit
 };
 
+// --- NEW: Flat Unit Arrays ---
+
 /**
- * A list of all supported units for dropdowns, grouped.
- * This is for use in Chunk 3 (Submission Forms).
+ * A flat list of all units for the converter tool.
  */
-export const allUnits = [
-  { label: 'Volume (Imperial)', options: ['cup', 'tbsp', 'tsp', 'fl oz', 'pint', 'quart', 'gallon'] },
-  { label: 'Volume (Metric)', options: ['ml', 'l'] },
-  { label: 'Mass (Imperial)', options: ['lb', 'oz'] },
-  { label: 'Mass (Metric)', options: ['g', 'kg'] },
-  { label: 'Other', options: ['each'] },
+export const allUnitsFlat = [
+  // Imperial Volume
+  'cup', 'tbsp', 'tsp', 'fl oz', 'pint', 'quart', 'gallon',
+  // Metric Volume
+  'ml', 'l',
+  // Imperial Mass
+  'lb', 'oz',
+  // Metric Mass
+  'g', 'kg',
+  // Other
+  'each',
 ];
+
+/**
+ * A flat list favoring Imperial units, for submission forms.
+ */
+export const imperialUnits = [
+  'each',
+  // Imperial Volume
+  'cup', 'tbsp', 'tsp', 'fl oz', 'pint', 'quart', 'gallon',
+  // Imperial Mass
+  'lb', 'oz',
+  // Metric (for convenience)
+  'g', 'kg', 'ml', 'l',
+];
+
+/**
+ * A flat list favoring Metric units, for submission forms.
+ */
+export const metricUnits = [
+  'each',
+  // Metric Mass
+  'g', 'kg',
+  // Metric Volume
+  'ml', 'l',
+  // Imperial (for convenience)
+  'cup', 'tbsp', 'tsp', 'fl oz', 'lb', 'oz',
+];
+// ---
 
 // --- 2. Density Database (g/ml) ---
 // This is the "secret sauce" for volume <-> mass conversion.
