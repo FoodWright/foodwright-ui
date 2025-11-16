@@ -23,7 +23,7 @@
       </q-banner>
     </div>
 
-    <q-form v-if="!loading && !error" @submit="handleSubmit" @keydown.enter.prevent class="q-gutter-md">
+    <q-form v-if="!loading && !error" @submit="handleSubmit" @keydown.enter="preventSubmitOnEnter" class="q-gutter-md">
       <q-card flat bordered>
         <q-card-section>
           <div class="text-h6 q-mb-sm">Basic Info</div>
@@ -51,8 +51,8 @@
             </q-btn>
           </q-img>
 
-          <q-select v-model="form.tags" label="Tags" hint="Select existing tags or type to create new ones." outlined
-            multiple use-chips use-input @new-value="handleCreateTag" :options="availableTags" class="q-mt-md" />
+          <q-select v-model="form.tags" label="Tags" hint="Select existing tags." outlined multiple use-chips
+            :options="availableTags" class="q-mt-md" />
 
           <q-input v-model.number="form.xp" type="number" label="XP" outlined class="q-mt-md" readonly disable
             hint="XP (10-100) will be assigned if you submit to the Guild." />
@@ -132,7 +132,7 @@
 import { reactive, ref, onMounted, computed, getCurrentInstance } from 'vue';
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
-import { useUserStore } from 'stores/user'; // <-- NEW
+import { useUserStore } from 'stores/user';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 import { useRouter, useRoute } from 'vue-router';
@@ -141,15 +141,13 @@ import {
   uploadBytesResumable,
   getDownloadURL,
 } from 'firebase/storage';
-// --- MODIFICATION: Import new unit lists ---
 import { imperialUnits, metricUnits } from 'src/services/unitConverter';
-// ---
 
 const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
-const userStore = useUserStore(); // <-- NEW
+const userStore = useUserStore();
 const { tags: availableTags } = storeToRefs(recipeStore);
-const { profile: userProfile } = storeToRefs(userStore); // <-- NEW
+const { profile: userProfile } = storeToRefs(userStore);
 const $q = useQuasar();
 const router = useRouter();
 const route = useRoute();
@@ -167,14 +165,20 @@ const imageFile = ref(null);
 
 const isEditMode = computed(() => !!recipeId.value);
 
-// --- NEW COMPUTED: Choose unit list based on user profile ---
+// --- NEW: Function to conditionally prevent Enter-key submission ---
+const preventSubmitOnEnter = (event) => {
+  if (event.target.tagName !== 'TEXTAREA') {
+    event.preventDefault();
+  }
+};
+// ---
+
 const preferredUnitList = computed(() => {
   if (userProfile.value?.unit_preference === 'metric') {
     return metricUnits;
   }
   return imperialUnits; // Default to imperial
 });
-// ---
 
 const form = reactive({
   title: '',
@@ -208,13 +212,7 @@ const addHeader = () => {
   form.ingredients.push({ type: 'header', name: '' });
 };
 
-const handleCreateTag = (val, done) => {
-  const newTag = val.trim().toLowerCase();
-  if (newTag.length > 0 && !form.tags.includes(newTag)) {
-    done(newTag, 'add-unique');
-  }
-};
-
+// --- Firebase Uploader Functions (unchanged) ---
 const handleFileUpload = (file) => {
   if (!file) {
     return;
@@ -265,6 +263,7 @@ const handleRemoveImage = () => {
   imageFile.value = null;
   $q.notify({ color: 'info', message: 'Image selection cleared.' });
 };
+// --- End Uploader Functions ---
 
 const fetchRecipeForEdit = async () => {
   if (!isEditMode.value) {
@@ -413,12 +412,9 @@ const handleSubmitToGuild = async () => {
 };
 
 onMounted(() => {
-  // --- NEW: Fetch user profile to get unit preference ---
-  // We fetch this first, so the computed prop has data
   if (authStore.user && !userStore.profile) {
     userStore.fetchProfileAndFavorites();
   }
-  // ---
   recipeStore.fetchTags();
   fetchRecipeForEdit();
 });
