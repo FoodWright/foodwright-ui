@@ -63,7 +63,7 @@ export const imperialUnits = [
   // Imperial Mass
   'lb', 'oz',
   // Metric (for convenience)
-  'g', 'kg', 'ml', 'l',
+  // 'g', 'kg', 'ml', 'l',
 ];
 
 /**
@@ -76,7 +76,7 @@ export const metricUnits = [
   // Metric Volume
   'ml', 'l',
   // Imperial (for convenience)
-  'cup', 'tbsp', 'tsp', 'fl oz', 'lb', 'oz',
+  // 'cup', 'tbsp', 'tsp', 'fl oz', 'lb', 'oz',
 ];
 // ---
 
