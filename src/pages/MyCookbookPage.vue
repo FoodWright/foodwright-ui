@@ -15,7 +15,6 @@
     <q-separator class="q-mb-lg" />
 
     <q-tab-panels v-model="tab" animated>
-      <!-- Tab 1: Favorites -->
       <q-tab-panel name="favorites">
         <p class="text-body1 text-grey-8">
           Your collection of saved Guild recipes.
@@ -41,7 +40,6 @@
           <q-btn to="/" label="Find Recipes" color="primary" class="q-mt-md" />
         </div>
 
-        <!-- Favorites Recipe List -->
         <div v-else class="row q-col-gutter-md">
           <div v-for="recipe in favorites" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
             <q-card class="recipe-card full-height" flat bordered>
@@ -66,7 +64,6 @@
         </div>
       </q-tab-panel>
 
-      <!-- Tab 2: My Private Recipes -->
       <q-tab-panel name="private">
         <p class="text-body1 text-grey-8">
           Your private recipes. These are only visible to you and do not grant
@@ -92,7 +89,6 @@
           </p>
         </div>
 
-        <!-- Private Recipe List -->
         <div v-else class="row q-col-gutter-md">
           <div v-for="recipe in privateRecipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
             <q-card class="recipe-card full-height" flat bordered>
@@ -113,6 +109,8 @@
               <q-card-actions align="right">
                 <q-btn flat dense color="grey-7" label="Delete" @click="confirmDelete(recipe)" />
                 <q-btn flat dense color="primary" label="Edit" :to="`/my-cookbook/private/edit/${recipe.id}`" />
+
+                <q-btn flat dense color="positive" label="Submit to Guild" @click="confirmSubmit(recipe)" />
               </q-card-actions>
             </q-card>
           </div>
@@ -128,12 +126,14 @@ import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
+import { useRouter } from 'vue-router'; // <-- NEW
 
 const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
 const { favorites, privateRecipes } = storeToRefs(recipeStore);
 
 const $q = useQuasar();
+const router = useRouter(); // <-- NEW
 
 const tab = ref('favorites');
 
@@ -199,6 +199,37 @@ const confirmDelete = (recipe) => {
     await deletePrivateRecipe(recipe.id);
   });
 };
+
+// === NEW FUNCTION ===
+const confirmSubmit = (recipe) => {
+  $q.dialog({
+    title: 'Submit to Guild?',
+    message: `Are you sure you want to submit "${recipe.title}" for Guild review? It will be locked for editing while pending.`,
+    cancel: true,
+    persistent: true,
+    ok: {
+      color: 'positive',
+      label: 'Submit',
+    },
+  }).onOk(async () => {
+    try {
+      await recipeStore.submitToGuild(recipe.id);
+      $q.notify({
+        color: 'positive',
+        message: 'Recipe submitted for review!',
+      });
+      // Navigate away, as this recipe is no longer "private"
+      router.push('/my-submissions');
+    } catch (err) {
+      console.error('Failed to submit recipe:', err);
+      $q.notify({
+        color: 'negative',
+        message: `Submission failed: ${err.message}`,
+      });
+    }
+  });
+};
+// === END NEW ===
 
 const deletePrivateRecipe = async (recipeId) => {
   try {

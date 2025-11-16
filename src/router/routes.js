@@ -110,11 +110,17 @@ const routes = [
       // ---
 
       // --- Private User Routes (Require Login) ---
+
+      // === MODIFICATION: Delete this entire route block ===
+      /*
       {
         path: '/submit',
         component: () => import('pages/SubmitPage.vue'),
         beforeEnter: requireAuth, // <-- ADDED guard
       },
+      */
+      // === END MODIFICATION ===
+
       {
         path: '/my-submissions',
         component: () => import('pages/MySubmissionsPage.vue'),
