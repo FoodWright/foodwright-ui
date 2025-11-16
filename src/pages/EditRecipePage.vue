@@ -23,8 +23,7 @@
       </q-banner>
     </div>
 
-    <q-form v-if="!loading && !error" @submit="handleSubmit" class="q-gutter-md">
-      <!-- Section 1: Basic Info -->
+    <q-form v-if="!loading && !error" @submit="handleSubmit" @keydown.enter.prevent class="q-gutter-md">
       <q-card flat bordered>
         <q-card-section>
           <div class="text-h6 q-mb-sm">Basic Info</div>
@@ -60,7 +59,6 @@
         </q-card-section>
       </q-card>
 
-      <!-- Section 2: Ingredients -->
       <q-card flat bordered>
         <q-card-section>
           <div class="row items-center justify-between q-mb-sm">
@@ -73,18 +71,15 @@
             </div>
           </div>
 
-          <!-- === MODIFIED: v-for with conditional rendering === -->
           <div v-for="(ingredient, index) in form.ingredients" :key="index"
             class="row items-center q-gutter-sm q-mb-sm">
-            <!-- Case 1: Ingredient -->
             <template v-if="ingredient.type === 'ingredient' || !ingredient.type">
-              <!-- Added !ingredient.type for backward compatibility -->
               <q-input v-model="ingredient.quantity_str" label="Qty (e.g. 1 1/2)" outlined dense class="col-3" />
-              <q-select v-model="ingredient.unit" label="Unit" :options="unitOptions" outlined dense class="col" />
+              <q-select v-model="ingredient.unit" label="Unit" :options="preferredUnitList" outlined dense
+                class="col" />
               <q-input v-model="ingredient.name" label="Name (e.g. Flour)" outlined dense class="col-5" />
             </template>
 
-            <!-- Case 2: Header -->
             <template v-if="ingredient.type === 'header'">
               <q-input v-model="ingredient.name" label="Section Header (e.g. Filling)" outlined dense class="col"
                 input-class="text-weight-bold text-primary" />
@@ -92,7 +87,6 @@
 
             <q-btn @click="removeIngredient(index)" flat round dense color="negative" icon="remove_circle_outline" />
           </div>
-          <!-- === END MODIFICATION === -->
 
           <div v-if="form.ingredients.length === 0" class="text-grey-7 q-pa-md text-center">
             Add your first ingredient.
@@ -100,7 +94,6 @@
         </q-card-section>
       </q-card>
 
-      <!-- Section 3: Instructions -->
       <q-card flat bordered>
         <q-card-section>
           <div class="row items-center justify-between q-mb-sm">
@@ -121,7 +114,6 @@
         </q-card-section>
       </q-card>
 
-      <!-- Action Buttons -->
       <div class="row q-gutter-md q-mt-md">
         <q-btn :label="isEditMode ? 'Save Changes' : 'Save to Cookbook'" type="submit" color="primary" size="lg"
           class="col" :loading="isSubmitting" />
@@ -149,7 +141,7 @@ import {
   uploadBytesResumable,
   getDownloadURL,
 } from 'firebase/storage';
-// --- NEW: Import Conversion Library ---
+// --- MODIFICATION: Import new unit lists ---
 import { imperialUnits, metricUnits } from 'src/services/unitConverter';
 // ---
 
@@ -157,7 +149,7 @@ const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
 const userStore = useUserStore(); // <-- NEW
 const { tags: availableTags } = storeToRefs(recipeStore);
-const { profile } = storeToRefs(userStore); // <-- NEW
+const { profile: userProfile } = storeToRefs(userStore); // <-- NEW
 const $q = useQuasar();
 const router = useRouter();
 const route = useRoute();
@@ -175,6 +167,15 @@ const imageFile = ref(null);
 
 const isEditMode = computed(() => !!recipeId.value);
 
+// --- NEW COMPUTED: Choose unit list based on user profile ---
+const preferredUnitList = computed(() => {
+  if (userProfile.value?.unit_preference === 'metric') {
+    return metricUnits;
+  }
+  return imperialUnits; // Default to imperial
+});
+// ---
+
 const form = reactive({
   title: '',
   description: '',
@@ -186,16 +187,6 @@ const form = reactive({
   image_url: '',
 });
 
-// --- NEW: Computed prop for units based on user preference ---
-const unitOptions = computed(() => {
-  if (profile.value && profile.value.unit_preference === 'metric') {
-    return metricUnits;
-  }
-  return imperialUnits; // Default to imperial
-});
-// ---
-
-// --- MODIFIED: Use new ingredient structure ---
 const addIngredient = () => {
   form.ingredients.push({
     type: 'ingredient',
@@ -216,7 +207,6 @@ const removeInstruction = (index) => {
 const addHeader = () => {
   form.ingredients.push({ type: 'header', name: '' });
 };
-// ---
 
 const handleCreateTag = (val, done) => {
   const newTag = val.trim().toLowerCase();
@@ -264,14 +254,12 @@ const handleFileUpload = (file) => {
     }
   );
 };
-
 const handleUploadError = () => {
   $q.notify({
     color: 'negative',
     message: 'Image upload failed. File may be too large or not an image.',
   });
 };
-
 const handleRemoveImage = () => {
   form.image_url = '';
   imageFile.value = null;
@@ -320,7 +308,6 @@ const handleSubmit = async () => {
 
   isSubmitting.value = true;
   try {
-    // --- MODIFIED: Filter logic ---
     const cleanIngredients = form.ingredients.filter((i) => {
       if (i.type === 'header') {
         return i.name && i.name.trim() !== '';
@@ -332,7 +319,6 @@ const handleSubmit = async () => {
         String(i.quantity_str).trim() !== ''
       );
     });
-    // ---
     const cleanInstructions = form.instructions.filter(
       (i) => i.step && i.step.trim() !== ''
     );
@@ -356,7 +342,6 @@ const handleSubmit = async () => {
         : 'Recipe saved to your private cookbook!',
     });
 
-    // --- NEW: Check for badges on CREATE ---
     if (!isEditMode.value && response) {
       if (
         response.new_badges_awarded &&
@@ -372,7 +357,6 @@ const handleSubmit = async () => {
         });
       }
     }
-    // ---
 
     router.push('/my-cookbook?tab=private');
   } catch (err) {
@@ -407,6 +391,7 @@ const handleSubmitToGuild = async () => {
         return;
       }
 
+      // Then, submit it
       await recipeStore.submitToGuild(recipeId.value); // Use store
 
       $q.notify({
@@ -428,11 +413,13 @@ const handleSubmitToGuild = async () => {
 };
 
 onMounted(() => {
-  recipeStore.fetchTags();
-  // Fetch user profile to get preferences, if not already fetched
-  if (!profile.value) {
+  // --- NEW: Fetch user profile to get unit preference ---
+  // We fetch this first, so the computed prop has data
+  if (authStore.user && !userStore.profile) {
     userStore.fetchProfileAndFavorites();
   }
+  // ---
+  recipeStore.fetchTags();
   fetchRecipeForEdit();
 });
 </script>
