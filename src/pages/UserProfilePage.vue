@@ -106,50 +106,82 @@
         </q-card>
       </div>
 
-      <!-- Right Column: Recent Activity -->
+      <!-- Right Column: Activity / Settings -->
       <div class="col-12 col-md-8">
-        <h5 class="text-h5 q-mt-none q-mb-md">Recent Activity</h5>
+        <!-- === NEW: Tab Layout === -->
+        <q-tabs v-model="tab" dense class="text-grey" active-color="primary" indicator-color="primary" align="left"
+          narrow-indicator>
+          <q-tab name="activity" label="Recent Activity" />
+          <q-tab v-if="isMyProfile" name="settings" label="Settings" icon="settings" />
+        </q-tabs>
+        <q-separator />
 
-        <div v-if="loading.logs" class="text-center q-pa-md">
-          <q-spinner-dots color="primary" size="2em" />
-        </div>
-        <div v-if="error.logs" class="text-red">
-          Error fetching activity: {{ error.logs }}
-        </div>
+        <q-tab-panels v-model="tab" animated>
+          <!-- Activity Panel -->
+          <q-tab-panel name="activity" class="q-pa-none q-pt-md">
+            <h5 class="text-h5 q-mt-none q-mb-md">Recent Activity</h5>
+            <div v-if="loading.logs" class="text-center q-pa-md">
+              <q-spinner-dots color="primary" size="2em" />
+            </div>
+            <div v-if="error.logs" class="text-red">
+              Error fetching activity: {{ error.logs }}
+            </div>
 
-        <div v-if="logs.length === 0 && !loading.logs" class="text-center text-grey-7 q-pa-md">
-          <q-icon name="history" size="2em" class="q-mb-sm" />
-          <div>No recent activity.</div>
-        </div>
+            <div v-if="logs.length === 0 && !loading.logs" class="text-center text-grey-7 q-pa-md">
+              <q-icon name="history" size="2em" class="q-mb-sm" />
+              <div>No recent activity.</div>
+            </div>
 
-        <q-list v-else separator>
-          <q-item v-for="log in logs" :key="log.log_id" class="q-py-md">
-            <q-item-section avatar>
-              <q-icon name="menu_book" color="primary" size="md" />
-            </q-item-section>
+            <q-list v-else separator>
+              <q-item v-for="log in logs" :key="log.log_id" class="q-py-md">
+                <q-item-section avatar>
+                  <q-icon name="menu_book" color="primary" size="md" />
+                </q-item-section>
 
-            <q-item-section>
-              <q-item-label>
-                Logged a cook for
-                <router-link :to="`/recipe/${log.recipe_id}`" class="text-weight-bold text-primary">
-                  {{ log.recipe_title }}
-                </router-link>
-              </q-item-label>
+                <q-item-section>
+                  <q-item-label>
+                    Logged a cook for
+                    <router-link :to="`/recipe/${log.recipe_id}-${log.recipe_slug}`"
+                      class="text-weight-bold text-primary">
+                      {{ log.recipe_title }}
+                    </router-link>
+                  </q-item-label>
 
-              <q-item-label v-if="log.rating" class="q-mt-xs">
-                <q-rating :model-value="log.rating" color="orange" icon="star" size="xs" readonly />
-              </q-item-label>
+                  <q-item-label v-if="log.rating" class="q-mt-xs">
+                    <q-rating :model-value="log.rating" color="orange" icon="star" size="xs" readonly />
+                  </q-item-label>
 
-              <q-item-label v-if="log.notes" caption class="q-mt-xs text-italic">
-                "{{ log.notes }}"
-              </q-item-label>
+                  <q-item-label v-if="log.notes" caption class="q-mt-xs text-italic">
+                    "{{ log.notes }}"
+                  </q-item-label>
 
-              <q-item-label caption class="q-mt-sm">
-                {{ formatTimeAgo(log.logged_at) }}
-              </q-item-label>
-            </q-item-section>
-          </q-item>
-        </q-list>
+                  <q-item-label caption class="q-mt-sm">
+                    {{ formatTimeAgo(log.logged_at) }}
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-tab-panel>
+
+          <!-- Settings Panel -->
+          <q-tab-panel name="settings" class="q-pa-none q-pt-md">
+            <h5 class="text-h5 q-mt-none q-mb-md">My Settings</h5>
+            <q-card flat bordered>
+              <q-card-section>
+                <div class="text-h6 q-mb-xs">Unit Preference</div>
+                <p class="text-body2 text-grey-8">
+                  Choose your default measurement system for viewing recipes.
+                </p>
+                <q-btn-toggle v-if="loggedInUserProfile" v-model="loggedInUserProfile.unit_preference"
+                  @update:model-value="onPreferenceChange" spread toggle-color="primary" :options="[
+                    { label: 'Imperial (cups, oz)', value: 'imperial' },
+                    { label: 'Metric (grams, ml)', value: 'metric' },
+                  ]" />
+              </q-card-section>
+            </q-card>
+          </q-tab-panel>
+        </q-tab-panels>
+        <!-- === END NEW === -->
       </div>
     </div>
 
@@ -187,19 +219,35 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue';
+import { ref, reactive, onMounted, watch, computed } from 'vue'; // <-- ADDED computed
 import { useRoute } from 'vue-router';
 import { useUserStore } from 'stores/user';
+import { useAuthStore } from 'stores/auth'; // <-- NEW
 import { storeToRefs } from 'pinia';
+import { useQuasar } from 'quasar'; // <-- NEW
 
 const route = useRoute();
 const userStore = useUserStore();
-const { profile, logs } = storeToRefs(userStore);
+const authStore = useAuthStore(); // <-- NEW
+const $q = useQuasar(); // <-- NEW
+// --- MODIFIED: Use local state ---
+const profile = ref(null);
+const logs = ref([]);
+// Get the LOGGED IN user's profile for settings
+const { profile: loggedInUserProfile } = storeToRefs(userStore);
+// ---
 
 const userId = ref(route.params.id);
+const tab = ref('activity'); // <-- NEW
 
 const loading = reactive({ profile: false, logs: false });
 const error = reactive({ profile: null, logs: null });
+
+// --- NEW: Check if this is the logged-in user's profile ---
+const isMyProfile = computed(() => {
+  return authStore.user && authStore.user.uid === userId.value;
+});
+// ---
 
 // --- NEW: Badge Zoom State ---
 const showZoomDialog = ref(false);
@@ -211,11 +259,12 @@ const openZoomDialog = (badge) => {
 };
 // ---
 
+// --- MODIFIED: Use local state ---
 const fetchProfile = async (id) => {
   loading.profile = true;
   error.profile = null;
   try {
-    await userStore.fetchPublicProfile(id);
+    profile.value = await userStore.fetchPublicProfile(id);
   } catch (err) {
     error.profile = err.message;
     console.error(err);
@@ -228,7 +277,7 @@ const fetchLogs = async (id) => {
   loading.logs = true;
   error.logs = null;
   try {
-    await userStore.fetchUserLogs(id);
+    logs.value = await userStore.fetchUserLogs(id);
   } catch (err) {
     error.logs = err.message;
     console.error(err);
@@ -236,6 +285,29 @@ const fetchLogs = async (id) => {
     loading.logs = false;
   }
 };
+// ---
+
+// --- NEW: Handle preference change ---
+const onPreferenceChange = async (value) => {
+  try {
+    await userStore.updatePreferences({ unit_preference: value });
+    $q.notify({
+      color: 'positive',
+      icon: 'check',
+      message: 'Preference saved!',
+    });
+  } catch (err) {
+    console.error('Failed to save preference:', err);
+    $q.notify({
+      color: 'negative',
+      message: `Failed to save: ${err.message}`,
+    });
+    // Revert on failure
+    loggedInUserProfile.value.unit_preference =
+      value === 'metric' ? 'imperial' : 'metric';
+  }
+};
+// ---
 
 const formatJoinDate = (isoString) => {
   if (!isoString) return '';
@@ -272,6 +344,7 @@ watch(
   (newId) => {
     if (newId) {
       userId.value = newId;
+      tab.value = 'activity'; // Reset to first tab on nav
       fetchProfile(newId);
       fetchLogs(newId);
     }

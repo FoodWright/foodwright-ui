@@ -62,9 +62,16 @@
 
                 <!-- All-Sizes Links -->
                 <q-item clickable to="/my-submissions">
-                  <q-item-section avatar><q-icon name="playlist_add_check" /></q-item-section>
+                  <!-- ... existing code ... -->
                   <q-item-section>My Submissions</q-item-section>
                 </q-item>
+
+                <!-- === NEW: Tool Link === -->
+                <q-item clickable to="/tools/converter">
+                  <q-item-section avatar><q-icon name="calculate" /></q-item-section>
+                  <q-item-section>Unit Converter</q-item-section>
+                </q-item>
+                <!-- === END NEW === -->
 
                 <!-- Admin Links -->
                 <div v-if="authStore.isAdmin || authStore.isSiteAdmin">

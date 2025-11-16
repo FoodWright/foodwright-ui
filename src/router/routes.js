@@ -102,6 +102,12 @@ const routes = [
         path: '/user/:id',
         component: () => import('pages/UserProfilePage.vue'),
       },
+      // --- NEW: Converter Tool Route ---
+      {
+        path: '/tools/converter',
+        component: () => import('pages/ConverterToolPage.vue'),
+      },
+      // ---
 
       // --- Private User Routes (Require Login) ---
       {
