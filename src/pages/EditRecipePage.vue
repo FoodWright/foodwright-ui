@@ -114,6 +114,14 @@
         </q-card-section>
       </q-card>
 
+      <q-card flat bordered>
+        <q-card-section>
+          <div class="row items-center justify-between q-mb-sm">
+            <q-input v-model="form.source" label="Source URL" outlined class="q-mt-md" />
+          </div>
+        </q-card-section>
+      </q-card>
+
       <div class="row q-gutter-md q-mt-md">
         <q-btn :label="isEditMode ? 'Save Changes' : 'Save to Cookbook'" type="submit" color="primary" size="lg"
           class="col" :loading="isSubmitting" />
@@ -189,6 +197,7 @@ const form = reactive({
   ingredients: [],
   instructions: [],
   image_url: '',
+  source: '',
 });
 
 const addIngredient = () => {
@@ -266,6 +275,25 @@ const handleRemoveImage = () => {
 // --- End Uploader Functions ---
 
 const fetchRecipeForEdit = async () => {
+  // --- Check for imported data first ---
+  if (recipeStore.recipeToEdit) {
+    const imported = recipeStore.recipeToEdit;
+
+    // Map the imported data to the form
+    form.title = imported.title || '';
+    form.description = imported.description || '';
+    form.tags = imported.tags || [];
+    form.ingredients = imported.ingredients || [];
+    form.instructions = imported.instructions || [];
+    // The API returns {String: "...", Valid: ...}
+    form.image_url = '';
+    form.source = imported.source.String || '';
+
+    // Clear the temporary holder
+    recipeStore.setRecipeToEdit(null);
+    return;
+  }
+
   if (!isEditMode.value) {
     // Set default ingredient for new recipes
     form.ingredients = [
@@ -288,6 +316,7 @@ const fetchRecipeForEdit = async () => {
     form.ingredients = recipe.ingredients || [];
     form.instructions = recipe.instructions || [];
     form.image_url = recipe.image_url.String || '';
+    form.source = recipe.source || '';
   } catch (err) {
     console.error('Failed to fetch recipe for edit:', err);
     error.value = err.message;
@@ -330,6 +359,7 @@ const handleSubmit = async () => {
       ingredients: cleanIngredients,
       instructions: cleanInstructions,
       image_url: form.image_url,
+      source: form.source,
     };
 
     const response = await recipeStore.savePrivateRecipe(payload); // Use store
