@@ -105,9 +105,9 @@ const handleLogout = async () => {
   try {
     await $auth.signOut($firebaseAuth);
     // onAuthStateChanged will fire, but we also clear state
-    // and push to login immediately.
+    // and push to index immediately.
     await authStore.clearAuthData();
-    router.push('/login');
+    router.push('/');
     $q.notify({
       color: 'primary',
       icon: 'info',
