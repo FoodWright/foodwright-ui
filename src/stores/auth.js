@@ -1,7 +1,5 @@
 import { defineStore } from 'pinia';
 import { getIdToken } from 'firebase/auth';
-// --- DELETED ---
-// import { getCurrentInstance } from 'vue';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -63,9 +61,6 @@ export const useAuthStore = defineStore('auth', {
       );
     },
 
-    // --- DELETED AUTH ACTIONS (loginWithEmail, signupWithEmail, loginWithGoogle) ---
-    // These will be called from the component context (LoginPage.vue)
-
     // --- MODIFIED LOGOUT ACTION ---
     // This action is now only responsible for clearing the Pinia state.
     // The actual Firebase sign-out is called from MainLayout.vue
@@ -80,5 +75,17 @@ export const useAuthStore = defineStore('auth', {
     // --- END MODIFIED ACTIONS ---
   },
 
-  persist: true,
+  persist: {
+    // Only persist these specific fields.
+    // 'authReady' is omitted, so it will always
+    // default to 'false' on a page load,
+    // fixing the race condition.
+    paths: [
+      'user',
+      'token',
+      'isAdmin',
+      'isSiteAdmin',
+      'favoriteRecipeIds',
+    ],
+  },
 });

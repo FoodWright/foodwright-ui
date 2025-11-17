@@ -29,9 +29,12 @@ const firebaseConfig = {
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
-const firebaseAuth = getAuth(firebaseApp);
-const firebaseStorage = getStorage(firebaseApp);
-const googleProvider = new GoogleAuthProvider();
+
+// --- MODIFICATION: Export these instances ---
+export const firebaseAuth = getAuth(firebaseApp);
+export const firebaseStorage = getStorage(firebaseApp);
+export const googleProvider = new GoogleAuthProvider();
+// --- END MODIFICATION ---
 
 if (location.hostname === 'localhost') {
   self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;

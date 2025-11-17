@@ -1,5 +1,8 @@
 import { useAuthStore } from 'stores/auth';
-import { getAuth, getIdToken } from 'firebase/auth';
+// --- MODIFICATION: Import the specific auth instance ---
+import { getIdToken } from 'firebase/auth';
+import { firebaseAuth } from 'src/boot/firebase';
+// --- END MODIFICATION ---
 
 // Get the API URL from environment variables
 const API_URL = import.meta.env.VITE_API_SERVER + '/api' || 'http://localhost:8080/api';
@@ -59,8 +62,14 @@ export const fetchWithAuth = async (endpoint, options = {}, isRetry = false) => 
   // This is likely a stale token. Let's force-refresh and retry once.
   if (response.status === 401) {
     console.warn('API returned 401. Forcing token refresh and retrying...');
-    const auth = getAuth();
+
+    // --- MODIFICATION: Use the imported firebaseAuth instance ---
+    const auth = firebaseAuth;
+    // --- END MODIFICATION ---
+
     if (!auth.currentUser) {
+      // This can happen on a hard refresh race condition
+      console.error('Auth refresh failed: auth.currentUser is null.');
       throw new Error('User not authenticated.');
     }
 
