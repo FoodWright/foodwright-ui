@@ -37,7 +37,7 @@
                     class="q-ml-md">
                     <q-tooltip>{{
                       isFavorited ? 'Remove from Cookbook' : 'Add to Cookbook'
-                    }}</q-tooltip>
+                      }}</q-tooltip>
                   </q-btn>
                   <q-btn v-if="authStore.isSiteAdmin" flat round :color="recipe.is_featured ? 'positive' : 'grey'"
                     :icon="recipe.is_featured ? 'star' : 'star_border'" @click.prevent="toggleFeature" class="q-ml-sm">
@@ -111,7 +111,7 @@
                         </strong>
                         <span class="q-ml-xs">{{
                           getConverted(item).unit
-                        }}</span>
+                          }}</span>
                         <span class="q-ml-sm">{{ item.name }}</span>
                       </q-item-label>
                     </q-item-section>
@@ -136,10 +136,21 @@
                   <q-item-section>
                     <q-item-label class="text-body1">{{
                       item.step
-                    }}</q-item-label>
+                      }}</q-item-label>
                   </q-item-section>
                 </q-item>
               </q-list>
+            </q-card-section>
+
+            <q-card-section>
+              <div v-if="recipe.source.Valid" class="q-mt-md">
+                <div class="text-overline text-grey-7">Source</div>
+                <a :href="recipe.source.String" target="_blank" rel="noopener noreferrer" class="text-body1"
+                  style="word-break: break-all;">
+                  {{ recipe.source.String }}
+                  <q-icon name="open_in_new" size="xs" class="q-ml-xs" />
+                </a>
+              </div>
             </q-card-section>
           </q-card>
         </div>

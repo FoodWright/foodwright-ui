@@ -9,6 +9,7 @@ export const useRecipeStore = defineStore('recipes', {
     pendingRecipes: [],
     recipes: [],
     recipe: null,
+    recipeToEdit: null,
     tags: [],
     favorites: [],
     privateRecipes: [],
@@ -71,7 +72,6 @@ export const useRecipeStore = defineStore('recipes', {
       this.privateRecipes = this.privateRecipes.filter((r) => r.id !== recipeId);
     },
 
-    // --- MODIFIED: Use fetchPublic ---
     async fetchRecipes(params) {
       const urlParams = new URLSearchParams(params);
       const data = await fetchPublic(`/recipes?${urlParams.toString()}`);
@@ -83,9 +83,7 @@ export const useRecipeStore = defineStore('recipes', {
       this.tags = data || [];
       return this.tags;
     },
-    // ---
 
-    // --- NEW: Action to fetch featured recipes ---
     async fetchFeaturedRecipes() {
       const data = await fetchPublic('/recipes/featured');
       this.featuredRecipes = data || [];
@@ -156,6 +154,18 @@ export const useRecipeStore = defineStore('recipes', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
+    },
+
+    setRecipeToEdit(recipe) {
+      this.recipeToEdit = recipe;
+    },
+
+    async importRecipeFromUrl(url) { // <-- ADD THIS ACTION
+      const data = await fetchWithAuth('/recipes/import-url', {
+        method: 'POST',
+        body: JSON.stringify({ url }),
+      });
+      return data; // This is the partial recipe object from the backend
     },
   },
 });

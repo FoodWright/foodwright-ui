@@ -2,8 +2,14 @@
   <q-page class="q-pa-md" style="max-width: 900px; margin: 0 auto">
     <div class="row items-center justify-between q-mb-md">
       <h4 class="text-h4 q-mt-none q-mb-none">My Cookbook</h4>
-      <q-btn v-if="tab === 'private'" to="/my-cookbook/private/new" label="Add Private Recipe" color="primary"
-        icon="add" />
+      <div>
+        <!-- --- NEW: Import Button --- -->
+        <q-btn v-if="tab === 'private'" @click="openImportDialog" label="Import from URL" color="secondary" icon="link"
+          class="q-mr-md" />
+        <!-- --- End New --- -->
+        <q-btn v-if="tab === 'private'" to="/my-cookbook/private/new" label="Add Private Recipe" color="primary"
+          icon="add" />
+      </div>
     </div>
 
     <q-tabs v-model="tab" dense class="text-grey" active-color="primary" indicator-color="primary" align="left"
@@ -28,7 +34,8 @@
             <template v-slot:avatar>
               <q-icon name="error" />
             </template>
-            <strong>Error fetching your favorites:</strong> {{ error.favorites }}
+            <strong>Error fetching your favorites:</strong>
+            {{ error.favorites }}
           </q-banner>
         </div>
         <div v-if="favorites.length === 0 && !loading.favorites" class="text-center q-pa-xl">
@@ -50,7 +57,7 @@
                 </q-card-section>
 
                 <q-card-section class="q-pt-sm">
-                  <div class="row justify-between no-wrap">
+                  <div class="row items-center justify-between no-wrap">
                     <div class="text-h6 ellipsis">{{ recipe.title }}</div>
                     <q-btn flat round color="primary" icon="bookmark" @click.prevent="toggleFavorite(recipe.id)" />
                   </div>
@@ -126,14 +133,14 @@ import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
-import { useRouter } from 'vue-router'; // <-- NEW
+import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
 const { favorites, privateRecipes } = storeToRefs(recipeStore);
 
 const $q = useQuasar();
-const router = useRouter(); // <-- NEW
+const router = useRouter();
 
 const tab = ref('favorites');
 
@@ -193,14 +200,13 @@ const confirmDelete = (recipe) => {
     persistent: true,
     ok: {
       color: 'negative',
-      label: 'Delete'
-    }
+      label: 'Delete',
+    },
   }).onOk(async () => {
     await deletePrivateRecipe(recipe.id);
   });
 };
 
-// === NEW FUNCTION ===
 const confirmSubmit = (recipe) => {
   $q.dialog({
     title: 'Submit to Guild?',
@@ -229,20 +235,66 @@ const confirmSubmit = (recipe) => {
     }
   });
 };
-// === END NEW ===
+
+// --- NEW: Import from URL Handler ---
+const openImportDialog = () => {
+  $q.dialog({
+    title: 'Import Recipe from URL',
+    message: 'Enter the URL of the recipe you want to import.',
+    prompt: {
+      model: '',
+      type: 'text',
+      placeholder: 'https://www.example.com/recipe',
+    },
+    cancel: true,
+    persistent: true,
+  }).onOk(async (url) => {
+    if (!url || !url.startsWith('http')) {
+      $q.notify({ color: 'negative', message: 'Please enter a valid URL.' });
+      return;
+    }
+
+    $q.loading.show({ message: 'Importing recipe...' });
+
+    try {
+      // This action needs to be added to stores/recipes.js
+      const importedRecipe = await recipeStore.importRecipeFromUrl(url);
+
+      // Pass the imported data to the edit page
+      // We'll use the store as a temporary holder
+      // This action also needs to be added to stores/recipes.js
+      recipeStore.setRecipeToEdit(importedRecipe);
+
+      $q.loading.hide(); // Hide loading *before* navigating
+
+      router.push('/my-cookbook/private/new');
+
+    } catch (err) {
+      $q.loading.hide();
+      console.error('Import failed:', err);
+      $q.notify({
+        color: 'negative',
+        message: `Import failed: ${err.message || 'Unknown error'}`,
+        timeout: 4000,
+      });
+    }
+    // Removed the finally block to hide loading on success *before* navigation
+  });
+};
+// --- End New ---
 
 const deletePrivateRecipe = async (recipeId) => {
   try {
     await recipeStore.deletePrivateRecipe(recipeId);
     $q.notify({
       color: 'positive',
-      message: 'Private recipe deleted.'
+      message: 'Private recipe deleted.',
     });
   } catch (err) {
     console.error('Failed to delete recipe:', err);
     $q.notify({
       color: 'negative',
-      message: `Failed to delete recipe: ${err.message}`
+      message: `Failed to delete recipe: ${err.message}`,
     });
   }
 };
