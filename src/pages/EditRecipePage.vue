@@ -36,6 +36,18 @@
           <q-input v-model="form.source" label="Source URL" outlined class="q-mt-md" />
           <!-- --- End Source URL --- -->
 
+          <div class="row q-col-gutter-md q-mt-sm">
+            <div class="col-12 col-sm-4">
+              <q-input v-model.number="form.prep_time_minutes" label="Prep Time (min)" type="number" outlined />
+            </div>
+            <div class="col-12 col-sm-4">
+              <q-input v-model.number="form.cook_time_minutes" label="Cook Time (min)" type="number" outlined />
+            </div>
+            <div class="col-12 col-sm-4">
+              <q-input v-model="form.servings" label="Servings" outlined placeholder="e.g., 4-6" />
+            </div>
+          </div>
+
           <div class="text-h6 q-mb-sm q-mt-md">Recipe Image</div>
 
           <!-- --- NEW: Copyright Warning Banner --- -->
@@ -203,7 +215,10 @@ const form = reactive({
   ingredients: [],
   instructions: [],
   image_url: '',
-  source: '', // <-- Field for source
+  source: '',
+  prep_time_minutes: null,
+  cook_time_minutes: null,
+  servings: '',
 });
 
 const addIngredient = () => {
@@ -281,7 +296,6 @@ const handleRemoveImage = () => {
 // --- End Uploader Functions ---
 
 const fetchRecipeForEdit = async () => {
-  // --- MODIFIED: Check for imported data first ---
   if (recipeStore.recipeToEdit) {
     const imported = recipeStore.recipeToEdit;
 
@@ -294,12 +308,15 @@ const fetchRecipeForEdit = async () => {
     // We intentionally do not import the image
     form.image_url = '';
     form.source = imported.source.String || '';
+    form.prep_time_minutes = imported.prep_time_minutes.Valid ? imported.prep_time_minutes.Int64 : null;
+    form.cook_time_minutes = imported.cook_time_minutes.Valid ? imported.cook_time_minutes.Int64 : null;
+    form.servings = imported.servings.String || '';
+
 
     // Clear the temporary holder
     recipeStore.setRecipeToEdit(null);
     return;
   }
-  // --- END MODIFICATION ---
 
   if (!isEditMode.value) {
     // Set default ingredient for new recipes
@@ -366,7 +383,10 @@ const handleSubmit = async () => {
       ingredients: cleanIngredients,
       instructions: cleanInstructions,
       image_url: form.image_url,
-      source: form.source, // <-- ADD THIS
+      source: form.source,
+      prep_time_minutes: form.prep_time_minutes > 0 ? form.prep_time_minutes : null,
+      cook_time_minutes: form.cook_time_minutes > 0 ? form.cook_time_minutes : null,
+      servings: form.servings,
     };
 
     const response = await recipeStore.savePrivateRecipe(payload); // Use store
