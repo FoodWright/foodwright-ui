@@ -32,7 +32,21 @@
 
           <q-input v-model="form.description" label="Description" type="textarea" outlined autogrow class="q-mt-md" />
 
+          <!-- --- Source URL Field --- -->
+          <q-input v-model="form.source" label="Source URL" outlined class="q-mt-md" />
+          <!-- --- End Source URL --- -->
+
           <div class="text-h6 q-mb-sm q-mt-md">Recipe Image</div>
+
+          <!-- --- NEW: Copyright Warning Banner --- -->
+          <q-banner rounded class="bg-orange-1 text-orange-9 q-mb-md" style="border: 1px solid #ffe5b8">
+            <template v-slot:avatar>
+              <q-icon name="warning" color="orange-9" />
+            </template>
+            Please only upload photos you took yourself. Do not use copyrighted images from other websites or blogs.
+          </q-banner>
+          <!-- --- END NEW BANNER --- -->
+
           <q-file v-model="imageFile" @update:model-value="handleFileUpload" @clear="handleRemoveImage"
             label="Upload an image (Max 5MB)" accept="image/*" max-file-size="5242880" @rejected="handleUploadError"
             outlined :loading="isUploading">
@@ -114,14 +128,6 @@
         </q-card-section>
       </q-card>
 
-      <q-card flat bordered>
-        <q-card-section>
-          <div class="row items-center justify-between q-mb-sm">
-            <q-input v-model="form.source" label="Source URL" outlined class="q-mt-md" />
-          </div>
-        </q-card-section>
-      </q-card>
-
       <div class="row q-gutter-md q-mt-md">
         <q-btn :label="isEditMode ? 'Save Changes' : 'Save to Cookbook'" type="submit" color="primary" size="lg"
           class="col" :loading="isSubmitting" />
@@ -197,7 +203,7 @@ const form = reactive({
   ingredients: [],
   instructions: [],
   image_url: '',
-  source: '',
+  source: '', // <-- Field for source
 });
 
 const addIngredient = () => {
@@ -275,7 +281,7 @@ const handleRemoveImage = () => {
 // --- End Uploader Functions ---
 
 const fetchRecipeForEdit = async () => {
-  // --- Check for imported data first ---
+  // --- MODIFIED: Check for imported data first ---
   if (recipeStore.recipeToEdit) {
     const imported = recipeStore.recipeToEdit;
 
@@ -285,7 +291,7 @@ const fetchRecipeForEdit = async () => {
     form.tags = imported.tags || [];
     form.ingredients = imported.ingredients || [];
     form.instructions = imported.instructions || [];
-    // The API returns {String: "...", Valid: ...}
+    // We intentionally do not import the image
     form.image_url = '';
     form.source = imported.source.String || '';
 
@@ -293,6 +299,7 @@ const fetchRecipeForEdit = async () => {
     recipeStore.setRecipeToEdit(null);
     return;
   }
+  // --- END MODIFICATION ---
 
   if (!isEditMode.value) {
     // Set default ingredient for new recipes
@@ -316,7 +323,7 @@ const fetchRecipeForEdit = async () => {
     form.ingredients = recipe.ingredients || [];
     form.instructions = recipe.instructions || [];
     form.image_url = recipe.image_url.String || '';
-    form.source = recipe.source || '';
+    form.source = recipe.source.String || ''; // <-- ADD THIS
   } catch (err) {
     console.error('Failed to fetch recipe for edit:', err);
     error.value = err.message;
@@ -359,7 +366,7 @@ const handleSubmit = async () => {
       ingredients: cleanIngredients,
       instructions: cleanInstructions,
       image_url: form.image_url,
-      source: form.source,
+      source: form.source, // <-- ADD THIS
     };
 
     const response = await recipeStore.savePrivateRecipe(payload); // Use store
