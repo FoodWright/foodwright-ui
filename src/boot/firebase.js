@@ -50,6 +50,13 @@ export default boot(({ app, store }) => {
   // <-- Add router
   const authStore = useAuthStore(store);
 
+  // --- NEW FIX ---
+  // Force authReady to false on every single page load.
+  // This ensures we ALWAYS wait for the onAuthStateChanged
+  // listener to fire before any page logic runs.
+  authStore.authReady = false;
+  // --- END FIX ---
+
   // This handles INITIAL LOAD, LOGIN, and LOGOUT
   onAuthStateChanged(firebaseAuth, async (user) => {
     console.log('Firebase auth state changed, user:', user?.uid || 'null');

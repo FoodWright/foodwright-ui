@@ -51,6 +51,25 @@
               </div>
               <p class="text-body1 text-grey-8">{{ recipe.description }}</p>
 
+              <div v-if="recipe.prep_time_minutes.Valid || recipe.cook_time_minutes.Valid || recipe.servings.Valid"
+                class="row q-col-gutter-sm q-mt-md text-center">
+                <div v-if="recipe.prep_time_minutes.Valid" class="col-4">
+                  <q-icon name="schedule" size="sm" color="grey-7" />
+                  <div class="text-overline text-grey-7">Prep Time</div>
+                  <div class="text-body1 text-weight-medium">{{ recipe.prep_time_minutes.Int64 }} min</div>
+                </div>
+                <div v-if="recipe.cook_time_minutes.Valid" class="col-4">
+                  <q-icon name="whatshot" size="sm" color="grey-7" />
+                  <div class="text-overline text-grey-7">Cook Time</div>
+                  <div class="text-body1 text-weight-medium">{{ recipe.cook_time_minutes.Int64 }} min</div>
+                </div>
+                <div v-if="recipe.servings.Valid" class="col-4">
+                  <q-icon name="room_service" size="sm" color="grey-7" />
+                  <div class="text-overline text-grey-7">Servings</div>
+                  <div class="text-body1 text-weight-medium">{{ recipe.servings.String }}</div>
+                </div>
+              </div>
+
               <div v-if="recipe.submitted_by_username.Valid" class="q-mt-sm text-caption text-grey-7">
                 Submitted by:
                 <router-link :to="`/user/${recipe.submitted_by_user_id.String}`" class="user-link">
@@ -285,12 +304,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, computed, watch } from 'vue'; // <-- ADDED watch
-import { useRoute, useRouter } from 'vue-router'; // <-- MODIFIED
+import { ref, onMounted, reactive, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
 import { useAdminStore } from 'stores/admin';
-import { useUserStore } from 'stores/user'; // <-- NEW
+import { useUserStore } from 'stores/user';
 import { storeToRefs } from 'pinia';
 import { useQuasar } from 'quasar';
 // --- NEW: Import Conversion Library ---
@@ -301,13 +320,13 @@ const route = useRoute();
 const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
 const adminStore = useAdminStore();
-const userStore = useUserStore(); // <-- NEW
+const userStore = useUserStore();
 const { recipe, cookLogs, comments } = storeToRefs(recipeStore);
-const { profile } = storeToRefs(userStore); // <-- NEW
+const { profile } = storeToRefs(userStore);
 const $q = useQuasar();
-const router = useRouter(); // <-- NEW
+const router = useRouter();
 
-const recipeId = parseInt(route.params.id.split('-')[0], 10); // <-- Use new slug parsing
+const recipeId = parseInt(route.params.id.split('-')[0], 10);
 
 const loading = ref(false);
 const error = ref(null);
@@ -325,7 +344,6 @@ const logForm = reactive({
   rating: 0,
 });
 
-// --- NEW: Unit Conversion State ---
 const displayMode = ref('imperial'); // Default
 
 // Watch for the user's profile to load, then set their preference
@@ -444,7 +462,7 @@ const handleLogSubmit = async () => {
       });
     }
     showLogDialog.value = false;
-    // --- NEW: Refresh the main recipe data to update rating ---
+
     await fetchRecipe();
   } catch (err) {
     console.error('Failed to log cook:', err);
@@ -474,7 +492,6 @@ const handleCommentSubmit = async () => {
   }
 };
 
-// === NEW FUNCTION ===
 const confirmSubmit = () => {
   if (!recipe.value) return;
   $q.dialog({
@@ -504,7 +521,6 @@ const confirmSubmit = () => {
     }
   });
 };
-// === END NEW ===
 
 const formatTimeAgo = (isoString) => {
   const date = new Date(isoString);
@@ -563,7 +579,6 @@ const toggleFavorite = async () => {
   }
 };
 
-// --- NEW: Handler for Site Admin ---
 const toggleFeature = async () => {
   if (!recipe.value) return;
   try {
