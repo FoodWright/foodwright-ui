@@ -97,22 +97,27 @@
             </div>
           </div>
 
-          <div v-for="(ingredient, index) in form.ingredients" :key="index"
-            class="row items-center q-gutter-sm q-mb-sm">
-            <template v-if="ingredient.type === 'ingredient' || !ingredient.type">
-              <q-input v-model="ingredient.quantity_str" label="Qty (e.g. 1 1/2)" outlined dense class="col-3" />
-              <q-select v-model="ingredient.unit" label="Unit" :options="preferredUnitList" outlined dense
-                class="col" />
-              <q-input v-model="ingredient.name" label="Name (e.g. Flour)" outlined dense class="col-5" />
-            </template>
+          <draggable v-model="form.ingredients" item-key="index" handle=".drag-handle" ghost-class="ghost">
+            <template #item="{ element, index }">
+              <div class="row items-center q-gutter-sm q-mb-sm">
+                <q-icon name="drag_indicator" class="drag-handle cursor-pointer text-grey-5" size="sm" />
 
-            <template v-if="ingredient.type === 'header'">
-              <q-input v-model="ingredient.name" label="Section Header (e.g. Filling)" outlined dense class="col"
-                input-class="text-weight-bold text-primary" />
-            </template>
+                <template v-if="element.type === 'ingredient' || !element.type">
+                  <q-input v-model="element.quantity_str" label="Qty" outlined dense class="col-3" />
+                  <q-select v-model="element.unit" label="Unit" :options="preferredUnitList" outlined dense
+                    class="col" />
+                  <q-input v-model="element.name" label="Name" outlined dense class="col-5" />
+                </template>
 
-            <q-btn @click="removeIngredient(index)" flat round dense color="negative" icon="remove_circle_outline" />
-          </div>
+                <template v-if="element.type === 'header'">
+                  <q-input v-model="element.name" label="Section Header" outlined dense class="col"
+                    input-class="text-weight-bold text-primary" />
+                </template>
+
+                <q-btn @click="removeIngredient(index)" flat round dense color="negative" icon="remove_circle_outline" />
+              </div>
+            </template>
+          </draggable>
 
           <div v-if="form.ingredients.length === 0" class="text-grey-7 q-pa-md text-center">
             Add your first ingredient.
@@ -127,13 +132,18 @@
             <q-btn label="Add Step" @click="addInstruction" color="primary" flat icon="add" />
           </div>
 
-          <div v-for="(instruction, index) in form.instructions" :key="index"
-            class="row items-center q-gutter-sm q-mb-sm">
-            <div class="text-h6 text-grey-5 q-mr-sm">{{ index + 1 }}.</div>
-            <q-input v-model="instruction.step" :label="`Step ${index + 1}`" type="textarea" outlined dense autogrow
-              class="col" />
-            <q-btn @click="removeInstruction(index)" flat round dense color="negative" icon="remove_circle_outline" />
-          </div>
+          <draggable v-model="form.instructions" item-key="index" handle=".drag-handle" ghost-class="ghost">
+            <template #item="{ element, index }">
+              <div class="row items-center q-gutter-sm q-mb-sm">
+                <q-icon name="drag_indicator" class="drag-handle cursor-pointer text-grey-5" size="sm" />
+                <div class="text-h6 text-grey-5 q-mr-sm" style="min-width: 25px">{{ index + 1 }}.</div>
+                <q-input v-model="element.step" :label="`Step ${index + 1}`" type="textarea" outlined dense autogrow
+                  class="col" />
+                <q-btn @click="removeInstruction(index)" flat round dense color="negative" icon="remove_circle_outline" />
+              </div>
+            </template>
+          </draggable>
+
           <div v-if="form.instructions.length === 0" class="text-grey-7 q-pa-md text-center">
             Add your first instruction.
           </div>
@@ -155,6 +165,7 @@
 </template>
 
 <script setup>
+import draggable from 'vuedraggable';
 import { reactive, ref, onMounted, computed, getCurrentInstance } from 'vue';
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
@@ -476,3 +487,18 @@ onMounted(() => {
   fetchRecipeForEdit();
 });
 </script>
+
+<style scoped>
+.ghost {
+  opacity: 0.5;
+  background: #c8ebfb;
+}
+
+.drag-handle {
+  cursor: grab;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+</style>
