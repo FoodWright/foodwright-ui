@@ -146,18 +146,27 @@
                 No instructions provided.
               </div>
               <q-list v-else class="instruction-list">
-                <q-item v-for="(item, index) in recipe.instructions" :key="index" class="q-mb-sm">
-                  <q-item-section avatar>
-                    <q-avatar color="primary" text-color="white" size="md">
-                      {{ index + 1 }}
-                    </q-avatar>
-                  </q-item-section>
-                  <q-item-section>
-                    <q-item-label class="text-body1">{{
-                      item.step
-                      }}</q-item-label>
-                  </q-item-section>
-                </q-item>
+                <template v-for="(item, index) in recipe.instructions" :key="index">
+                  <!-- Header Rendering -->
+                  <q-item-label v-if="item.type === 'header'" header class="text-primary text-weight-bold q-mt-md q-pl-none"
+                    style="font-size: 1.1em">
+                    {{ item.step }}
+                  </q-item-label>
+
+                  <!-- Step Rendering -->
+                  <q-item v-else class="q-mb-sm q-pl-none">
+                    <q-item-section avatar>
+                      <q-avatar color="primary" text-color="white" size="md">
+                        {{ getStepNumber(index) }}
+                      </q-avatar>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label class="text-body1">{{
+                        item.step
+                        }}</q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </template>
               </q-list>
             </q-card-section>
 
@@ -374,6 +383,31 @@ const getConverted = (item) => {
     return { quantity: item.quantity, unit: '', name: item.name };
   }
   return getConvertedIngredientDisplay(item, displayMode.value);
+};
+
+// Helper to count steps, resetting after each header
+const getStepNumber = (currentIndex) => {
+  if (!recipe.value || !recipe.value.instructions) return 0;
+  let count = 0;
+  // Iterate backwards from the current index to find the start of the section
+  for (let i = currentIndex; i >= 0; i--) {
+    if (recipe.value.instructions[i].type === 'header') {
+      break; // Stop when we hit a header
+    }
+    count++; // Count this step
+  }
+  // If the current item is a header, we shouldn't be calling this, but for safety:
+  if (recipe.value.instructions[currentIndex].type === 'header') return 0;
+  
+  // Since we counted backwards including the current item,
+  // 'count' is actually the correct relative step number if we just count steps.
+  // BUT, the loop above counts "how many steps back until a header".
+  // Example: Header, Step A, Step B (currentIndex).
+  // i=2 (Step B): not header, count=1
+  // i=1 (Step A): not header, count=2
+  // i=0 (Header): break.
+  // Result: 2. This is correct!
+  return count;
 };
 // ---
 
