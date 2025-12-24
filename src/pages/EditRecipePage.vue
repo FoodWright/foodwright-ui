@@ -129,16 +129,30 @@
         <q-card-section>
           <div class="row items-center justify-between q-mb-sm">
             <div class="text-h6">Instructions</div>
-            <q-btn label="Add Step" @click="addInstruction" color="primary" flat icon="add" />
+            <div>
+              <q-btn label="Add Header" @click="addInstructionHeader" color="grey-7" flat icon="title" dense>
+                <q-tooltip>Add a section header (e.g. "For the Filling")</q-tooltip>
+              </q-btn>
+              <q-btn label="Add Step" @click="addInstruction" color="primary" flat icon="add" dense />
+            </div>
           </div>
 
           <draggable v-model="form.instructions" item-key="index" handle=".drag-handle" ghost-class="ghost">
             <template #item="{ element, index }">
               <div class="row items-center q-gutter-sm q-mb-sm">
                 <q-icon name="drag_indicator" class="drag-handle cursor-pointer text-grey-5" size="sm" />
-                <div class="text-h6 text-grey-5 q-mr-sm" style="min-width: 25px">{{ index + 1 }}.</div>
-                <q-input v-model="element.step" :label="`Step ${index + 1}`" type="textarea" outlined dense autogrow
-                  class="col" />
+
+                <template v-if="element.type === 'instruction' || !element.type">
+                  <div class="text-h6 text-grey-5 q-mr-sm" style="min-width: 25px">{{ index + 1 }}.</div>
+                  <q-input v-model="element.step" :label="`Step ${index + 1}`" type="textarea" outlined dense autogrow
+                    class="col" />
+                </template>
+
+                <template v-if="element.type === 'header'">
+                  <q-input v-model="element.step" label="Section Header" outlined dense class="col"
+                    input-class="text-weight-bold text-primary" />
+                </template>
+
                 <q-btn @click="removeInstruction(index)" flat round dense color="negative" icon="remove_circle_outline" />
               </div>
             </template>
@@ -244,13 +258,16 @@ const removeIngredient = (index) => {
   form.ingredients.splice(index, 1);
 };
 const addInstruction = () => {
-  form.instructions.push({ step: '' });
+  form.instructions.push({ type: 'instruction', step: '' });
 };
 const removeInstruction = (index) => {
   form.instructions.splice(index, 1);
 };
 const addHeader = () => {
   form.ingredients.push({ type: 'header', name: '' });
+};
+const addInstructionHeader = () => {
+  form.instructions.push({ type: 'header', step: '' });
 };
 
 // --- Firebase Uploader Functions (unchanged) ---
