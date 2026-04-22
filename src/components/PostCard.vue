@@ -88,16 +88,16 @@
           dense
           :color="post.is_liked ? 'red' : 'grey'"
           :icon="post.is_liked ? 'favorite' : 'favorite_border'"
-          :label="post.like_count > 0 ? post.like_count : ''"
-          @click="$emit('like', post.id)"
+          :label="post.like_count > 0 ? String(post.like_count) : ''"
+          @click="emit('like', post.id)"
         />
         <q-btn
           flat
           dense
           color="grey"
           icon="repeat"
-          :label="post.repost_count > 0 ? post.repost_count : ''"
-          @click="$emit('repost', post.id)"
+          :label="post.repost_count > 0 ? String(post.repost_count) : ''"
+          @click="emit('repost', post.id)"
         />
         <q-btn
           v-if="post.recipe_id"
@@ -113,45 +113,36 @@
   </q-card>
 </template>
 
-<script>
+<script setup>
 import { computed } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from 'stores/auth'
 import { formatDistanceToNow } from 'date-fns'
 
-export default {
-  name: 'PostCard',
-  props: {
-    post: {
-      type: Object,
-      required: true
-    }
-  },
-  emits: ['like', 'repost', 'delete'],
-  setup(props, { emit }) {
-    const authStore = useAuthStore()
-
-    const isOwnPost = computed(() => {
-      return authStore.user && authStore.user.uid === props.post.user_id
-    })
-
-    const formatDate = (dateString) => {
-      try {
-        return formatDistanceToNow(new Date(dateString), { addSuffix: true })
-      } catch (e) {
-        return dateString
-      }
-    }
-
-    const handleDelete = () => {
-      emit('delete', props.post.id)
-    }
-
-    return {
-      isOwnPost,
-      formatDate,
-      handleDelete
-    }
+const props = defineProps({
+  post: {
+    type: Object,
+    required: true
   }
+})
+
+const emit = defineEmits(['like', 'repost', 'delete'])
+
+const authStore = useAuthStore()
+
+const isOwnPost = computed(() => {
+  return authStore.user && authStore.user.uid === props.post.user_id
+})
+
+const formatDate = (dateString) => {
+  try {
+    return formatDistanceToNow(new Date(dateString), { addSuffix: true })
+  } catch (e) {
+    return dateString
+  }
+}
+
+const handleDelete = () => {
+  emit('delete', props.post.id)
 }
 </script>
 

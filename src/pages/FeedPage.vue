@@ -109,168 +109,143 @@
   </q-page>
 </template>
 
-<script>
+<script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useSocialStore } from '@/stores/social'
+import { useSocialStore } from 'stores/social'
 import { useQuasar } from 'quasar'
-import PostCard from '@/components/PostCard.vue'
-import CreatePostCard from '@/components/CreatePostCard.vue'
+import PostCard from 'components/PostCard.vue'
+import CreatePostCard from 'components/CreatePostCard.vue'
 
-export default {
-  name: 'FeedPage',
-  components: {
-    PostCard,
-    CreatePostCard
-  },
-  setup() {
-    const socialStore = useSocialStore()
-    const $q = useQuasar()
+const socialStore = useSocialStore()
+const $q = useQuasar()
 
-    const tab = ref('following')
-    const loading = ref(false)
-    const loadingMore = ref(false)
+const tab = ref('following')
+const loading = ref(false)
+const loadingMore = ref(false)
 
-    const followingFeed = computed(() => socialStore.followingFeed)
-    const exploreFeed = computed(() => socialStore.exploreFeed)
-    const hasMoreFollowing = computed(() => socialStore.hasMoreFollowing)
-    const hasMoreExplore = computed(() => socialStore.hasMoreExplore)
+const followingFeed = computed(() => socialStore.followingFeed)
+const exploreFeed = computed(() => socialStore.exploreFeed)
+const hasMoreFollowing = computed(() => socialStore.hasMoreFollowing)
+const hasMoreExplore = computed(() => socialStore.hasMoreExplore)
 
-    const loadFollowingFeed = async () => {
-      loading.value = true
-      try {
-        await socialStore.fetchFeed(1)
-      } catch (error) {
-        console.error('Error loading following feed:', error)
-        $q.notify({
-          type: 'negative',
-          message: 'Failed to load feed',
-          position: 'top'
-        })
-      } finally {
-        loading.value = false
-      }
-    }
-
-    const loadExploreFeed = async () => {
-      loading.value = true
-      try {
-        await socialStore.fetchExploreFeed(1)
-      } catch (error) {
-        console.error('Error loading explore feed:', error)
-        $q.notify({
-          type: 'negative',
-          message: 'Failed to load feed',
-          position: 'top'
-        })
-      } finally {
-        loading.value = false
-      }
-    }
-
-    const loadMoreFollowing = async () => {
-      loadingMore.value = true
-      try {
-        await socialStore.fetchFeed(socialStore.feedPage + 1)
-      } catch (error) {
-        console.error('Error loading more:', error)
-      } finally {
-        loadingMore.value = false
-      }
-    }
-
-    const loadMoreExplore = async () => {
-      loadingMore.value = true
-      try {
-        await socialStore.fetchExploreFeed(socialStore.explorePage + 1)
-      } catch (error) {
-        console.error('Error loading more:', error)
-      } finally {
-        loadingMore.value = false
-      }
-    }
-
-    const refreshFollowingFeed = async () => {
-      await socialStore.fetchFeed(1)
-    }
-
-    const handleLike = async (postId) => {
-      try {
-        await socialStore.likePost(postId)
-      } catch (error) {
-        console.error('Error liking post:', error)
-        $q.notify({
-          type: 'negative',
-          message: 'Failed to like post',
-          position: 'top'
-        })
-      }
-    }
-
-    const handleRepost = async (postId) => {
-      try {
-        await socialStore.repostToFeed(postId)
-        $q.notify({
-          type: 'positive',
-          message: 'Post shared to your feed!',
-          position: 'top',
-          timeout: 2000
-        })
-      } catch (error) {
-        console.error('Error reposting:', error)
-        $q.notify({
-          type: 'negative',
-          message: 'Failed to share post',
-          position: 'top'
-        })
-      }
-    }
-
-    const handleDelete = async (postId) => {
-      $q.dialog({
-        title: 'Delete Post',
-        message: 'Are you sure you want to delete this post?',
-        cancel: true,
-        persistent: true
-      }).onOk(async () => {
-        try {
-          await socialStore.deletePost(postId)
-          $q.notify({
-            type: 'positive',
-            message: 'Post deleted',
-            position: 'top',
-            timeout: 2000
-          })
-        } catch (error) {
-          console.error('Error deleting post:', error)
-          $q.notify({
-            type: 'negative',
-            message: 'Failed to delete post',
-            position: 'top'
-          })
-        }
-      })
-    }
-
-    onMounted(() => {
-      loadFollowingFeed()
-      loadExploreFeed()
+const loadFollowingFeed = async () => {
+  loading.value = true
+  try {
+    await socialStore.fetchFeed(1)
+  } catch (error) {
+    console.error('Error loading following feed:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to load feed',
+      position: 'top'
     })
-
-    return {
-      tab,
-      loading,
-      loadingMore,
-      followingFeed,
-      exploreFeed,
-      hasMoreFollowing,
-      hasMoreExplore,
-      loadMoreFollowing,
-      loadMoreExplore,
-      refreshFollowingFeed,
-      handleLike,
-      handleRepost,
-      handleDelete
-    }
+  } finally {
+    loading.value = false
   }
 }
+
+const loadExploreFeed = async () => {
+  loading.value = true
+  try {
+    await socialStore.fetchExploreFeed(1)
+  } catch (error) {
+    console.error('Error loading explore feed:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to load feed',
+      position: 'top'
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadMoreFollowing = async () => {
+  loadingMore.value = true
+  try {
+    await socialStore.fetchFeed(socialStore.feedPage + 1)
+  } catch (error) {
+    console.error('Error loading more:', error)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+const loadMoreExplore = async () => {
+  loadingMore.value = true
+  try {
+    await socialStore.fetchExploreFeed(socialStore.explorePage + 1)
+  } catch (error) {
+    console.error('Error loading more:', error)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+const refreshFollowingFeed = async () => {
+  await socialStore.fetchFeed(1)
+}
+
+const handleLike = async (postId) => {
+  try {
+    await socialStore.likePost(postId)
+  } catch (error) {
+    console.error('Error liking post:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to like post',
+      position: 'top'
+    })
+  }
+}
+
+const handleRepost = async (postId) => {
+  try {
+    await socialStore.repostToFeed(postId)
+    $q.notify({
+      type: 'positive',
+      message: 'Post shared to your feed!',
+      position: 'top',
+      timeout: 2000
+    })
+  } catch (error) {
+    console.error('Error reposting:', error)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to share post',
+      position: 'top'
+    })
+  }
+}
+
+const handleDelete = async (postId) => {
+  $q.dialog({
+    title: 'Delete Post',
+    message: 'Are you sure you want to delete this post?',
+    cancel: true,
+    persistent: true
+  }).onOk(async () => {
+    try {
+      await socialStore.deletePost(postId)
+      $q.notify({
+        type: 'positive',
+        message: 'Post deleted',
+        position: 'top',
+        timeout: 2000
+      })
+    } catch (error) {
+      console.error('Error deleting post:', error)
+      $q.notify({
+        type: 'negative',
+        message: 'Failed to delete post',
+        position: 'top'
+      })
+    }
+  })
+}
+
+onMounted(() => {
+  loadFollowingFeed()
+  loadExploreFeed()
+})
 </script>
