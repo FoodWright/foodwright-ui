@@ -111,6 +111,13 @@ const routes = [
 
       // --- Private User Routes (Require Login) ---
 
+      // Social Feed
+      {
+        path: '/feed',
+        component: () => import('pages/FeedPage.vue'),
+        beforeEnter: requireAuth,
+      },
+
       // === MODIFICATION: Delete this entire route block ===
       /*
       {
@@ -143,17 +150,7 @@ const routes = [
         beforeEnter: requireAuth, // <-- ADDED guard
       },
 
-      // --- Admin Routes (Already guarded, but updated to new function) ---
-      {
-        path: '/admin',
-        component: () => import('pages/AdminPage.vue'),
-        beforeEnter: requireAdmin, // <-- UPDATED to new guard
-      },
-      {
-        path: '/site-admin',
-        component: () => import('pages/SiteAdminPage.vue'),
-        beforeEnter: requireSiteAdmin, // <-- UPDATED to new guard
-      },
+      // --- Admin Routes Removed (recipes now publish immediately) ---
     ],
   },
 

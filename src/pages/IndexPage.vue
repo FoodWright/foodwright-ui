@@ -54,11 +54,10 @@
       </div>
       <!-- === END: Featured Recipes Section === -->
 
-      <!-- === Guild Card === -->
+      <!-- === Social Feed Card === -->
       <q-card v-if="authStore.user && guildProfile" class="q-mb-md" flat bordered>
         <q-card-section>
           <div class="row items-center q-gutter-md">
-            <!-- === MODIFIED: Avatar with Fallback + Referrer Policy === -->
             <q-avatar size="60px" :color="authStore.user.photoURL ? 'white' : 'secondary'"
               :text-color="authStore.user.photoURL ? 'primary' : 'white'">
               <img v-if="authStore.user.photoURL" :src="authStore.user.photoURL" alt="User avatar"
@@ -67,72 +66,29 @@
                 {{ userInitials }}
               </template>
             </q-avatar>
-            <!-- === END MODIFICATION === -->
 
-            <!-- User Info -->
-            <div>
+            <div class="col">
               <div class="text-h6">
                 Welcome back, {{ authStore.user.displayName }}!
               </div>
               <div class="text-subtitle1 text-grey-8">
-                Your Rank:
-                <span class="text-weight-bold text-primary">{{
-                  guildProfile.rank
-                  }}</span>
+                <span class="text-weight-bold text-primary">{{ guildProfile.rank }}</span>
+                • {{ guildProfile.xp }} XP
+                • {{ guildProfile.follower_count }} followers
               </div>
             </div>
 
-            <!-- XP -->
-            <q-space />
-            <div class="text-right">
-              <div class="text-overline text-grey-7">XP</div>
-              <div class="text-h5 text-weight-bold">
-                {{ guildProfile.xp }}
-              </div>
-            </div>
+            <q-btn
+              color="primary"
+              label="View Feed"
+              icon="dynamic_feed"
+              to="/feed"
+              unelevated
+            />
           </div>
-
-          <!-- === MODIFIED: Badges as Avatars === -->
-          <div v-if="guildProfile.badges && guildProfile.badges.length" class="q-mt-md">
-            <div class="text-overline text-grey-7">Your Badges</div>
-            <div class="row items-center q-gutter-sm">
-              <!-- === MODIFIED: Refactored Badge Logic === -->
-              <div v-for="badge in guildProfile.badges" :key="badge.id" class="badge-avatar-wrapper cursor-pointer"
-                @click="openZoomDialog(badge)">
-                <!-- Case 1: It's an HTTP URL (render <q-img> inside) -->
-                <q-avatar v-if="
-                  badge.icon_url.Valid &&
-                  badge.icon_url.String.startsWith('http')
-                " size="36px" color="white">
-                  <q-img :src="badge.icon_url.String" referrerpolicy="no-referrer" fit="contain" style="height: 36px" />
-                </q-avatar>
-
-                <!-- Case 2: It's a FontAwesome icon or fallback -->
-                <q-avatar v-else size="36px" font-size="20px" color="secondary" text-color="white" :icon="badge.icon_url.Valid
-                    ? badge.icon_url.String
-                    : 'military_tech'
-                  ">
-                </q-avatar>
-
-                <!-- Tooltip (applied to the wrapper div, will work for both) -->
-                <q-tooltip class="bg-black text-body2" :offset="[10, 10]">
-                  <div class="text-weight-bold">{{ badge.name }}</div>
-                  <div>{{ badge.description }}</div>
-                  <div class="text-caption q-mt-sm">
-                    Earned: {{ formatJoinDate(badge.earned_at.Time) }}
-                  </div>
-                  <div class="text-caption text-italic q-mt-xs">
-                    Click to zoom
-                  </div>
-                </q-tooltip>
-              </div>
-              <!-- === END MODIFICATION === -->
-            </div>
-          </div>
-          <!-- === END MODIFICATION === -->
         </q-card-section>
       </q-card>
-      <!-- === End Guild Card === -->
+      <!-- === End Social Feed Card === -->
 
       <!-- Search and Filter Controls -->
       <div class="row q-col-gutter-md q-mb-md">
