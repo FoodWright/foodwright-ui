@@ -35,55 +35,55 @@ const requireAuth = (to, from, next) => {
  * Waits for auth, then checks if the user is a Guild Admin.
  * If not, redirects to home.
  */
-const requireAdmin = (to, from, next) => {
-  const authStore = useAuthStore();
+// const requireAdmin = (to, from, next) => {
+//   const authStore = useAuthStore();
 
-  const proceed = () => {
-    if (authStore.user && authStore.isAdmin) {
-      next(); // Is admin, proceed
-    } else {
-      next('/'); // Not admin, redirect to home
-    }
-  };
+//   const proceed = () => {
+//     if (authStore.user && authStore.isAdmin) {
+//       next(); // Is admin, proceed
+//     } else {
+//       next('/'); // Not admin, redirect to home
+//     }
+//   };
 
-  if (!authStore.authReady) {
-    const unwatch = authStore.$subscribe((mutation, state) => {
-      if (state.authReady) {
-        unwatch();
-        proceed();
-      }
-    });
-  } else {
-    proceed();
-  }
-};
+//   if (!authStore.authReady) {
+//     const unwatch = authStore.$subscribe((mutation, state) => {
+//       if (state.authReady) {
+//         unwatch();
+//         proceed();
+//       }
+//     });
+//   } else {
+//     proceed();
+//   }
+// };
 
 /**
  * Waits for auth, then checks if the user is a Site Admin.
  * If not, redirects to home.
  */
-const requireSiteAdmin = (to, from, next) => {
-  const authStore = useAuthStore();
+// const requireSiteAdmin = (to, from, next) => {
+//   const authStore = useAuthStore();
 
-  const proceed = () => {
-    if (authStore.user && authStore.isSiteAdmin) {
-      next(); // Is site admin, proceed
-    } else {
-      next('/'); // Not site admin, redirect to home
-    }
-  };
+//   const proceed = () => {
+//     if (authStore.user && authStore.isSiteAdmin) {
+//       next(); // Is site admin, proceed
+//     } else {
+//       next('/'); // Not site admin, redirect to home
+//     }
+//   };
 
-  if (!authStore.authReady) {
-    const unwatch = authStore.$subscribe((mutation, state) => {
-      if (state.authReady) {
-        unwatch();
-        proceed();
-      }
-    });
-  } else {
-    proceed();
-  }
-};
+//   if (!authStore.authReady) {
+//     const unwatch = authStore.$subscribe((mutation, state) => {
+//       if (state.authReady) {
+//         unwatch();
+//         proceed();
+//       }
+//     });
+//   } else {
+//     proceed();
+//   }
+// };
 // --- END: Reusable Route Guards ---
 
 const routes = [
@@ -93,7 +93,16 @@ const routes = [
     // --- DELETED: The site-wide beforeEnter guard ---
     children: [
       // --- Public Routes ---
-      { path: '', component: () => import('pages/IndexPage.vue') },
+      { 
+        path: '', 
+        component: () => import('pages/FeedPage.vue'),
+        // No beforeEnter guard needed because Explore tab is public. 
+        // FeedPage.vue will handle showing 'Following' tab only if auth is present
+      },
+      { 
+        path: '/recipes', 
+        component: () => import('pages/IndexPage.vue') 
+      },
       {
         path: '/recipe/:id',
         component: () => import('pages/RecipePage.vue'),
@@ -111,21 +120,12 @@ const routes = [
 
       // --- Private User Routes (Require Login) ---
 
-      // === MODIFICATION: Delete this entire route block ===
-      /*
+      // Social Feed (redirect /feed to / just in case)
       {
-        path: '/submit',
-        component: () => import('pages/SubmitPage.vue'),
-        beforeEnter: requireAuth, // <-- ADDED guard
+        path: '/feed',
+        redirect: '/',
       },
-      */
-      // === END MODIFICATION ===
 
-      {
-        path: '/my-submissions',
-        component: () => import('pages/MySubmissionsPage.vue'),
-        beforeEnter: requireAuth, // <-- ADDED guard
-      },
       {
         path: '/my-cookbook',
         component: () => import('pages/MyCookbookPage.vue'),
@@ -143,17 +143,7 @@ const routes = [
         beforeEnter: requireAuth, // <-- ADDED guard
       },
 
-      // --- Admin Routes (Already guarded, but updated to new function) ---
-      {
-        path: '/admin',
-        component: () => import('pages/AdminPage.vue'),
-        beforeEnter: requireAdmin, // <-- UPDATED to new guard
-      },
-      {
-        path: '/site-admin',
-        component: () => import('pages/SiteAdminPage.vue'),
-        beforeEnter: requireSiteAdmin, // <-- UPDATED to new guard
-      },
+      // --- Admin Routes Removed (recipes now publish immediately) ---
     ],
   },
 

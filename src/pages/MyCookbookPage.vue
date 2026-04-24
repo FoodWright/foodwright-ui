@@ -3,11 +3,9 @@
     <div class="row items-center justify-between q-mb-md">
       <h4 class="text-h4 q-mt-none q-mb-none">My Cookbook</h4>
       <div>
-        <!-- --- NEW: Import Button --- -->
-        <q-btn v-if="tab === 'private'" @click="openImportDialog" label="Import from URL" color="secondary" icon="link"
+        <q-btn v-if="tab === 'my-recipes'" @click="openImportDialog" label="Import from URL" color="secondary" icon="link"
           class="q-mr-md" />
-        <!-- --- End New --- -->
-        <q-btn v-if="tab === 'private'" to="/my-cookbook/private/new" label="Add Private Recipe" color="primary"
+        <q-btn v-if="tab === 'my-recipes'" to="/my-cookbook/private/new" label="New Recipe" color="primary"
           icon="add" />
       </div>
     </div>
@@ -15,7 +13,7 @@
     <q-tabs v-model="tab" dense class="text-grey" active-color="primary" indicator-color="primary" align="left"
       narrow-indicator>
       <q-tab name="favorites" label="Favorites" />
-      <q-tab name="private" label="My Private Recipes" />
+      <q-tab name="my-recipes" label="My Recipes" />
     </q-tabs>
 
     <q-separator class="q-mb-lg" />
@@ -44,7 +42,7 @@
           <p class="q-mt-sm">
             Click the bookmark icon on any recipe to save it here.
           </p>
-          <q-btn to="/" label="Find Recipes" color="primary" class="q-mt-md" />
+          <q-btn to="/recipes" label="Find Recipes" color="primary" class="q-mt-md" />
         </div>
 
         <div v-else class="row q-col-gutter-md">
@@ -71,33 +69,32 @@
         </div>
       </q-tab-panel>
 
-      <q-tab-panel name="private">
+      <q-tab-panel name="my-recipes">
         <p class="text-body1 text-grey-8">
-          Your private recipes. These are only visible to you and do not grant
-          XP.
+          Recipes you've created. Public recipes are visible to everyone in the feed.
         </p>
 
-        <div v-if="loading.private" class="text-center q-pa-xl">
+        <div v-if="loading.myRecipes" class="text-center q-pa-xl">
           <q-spinner-dots color="primary" size="3em" />
         </div>
-        <div v-if="error.private" class="q-pa-md">
+        <div v-if="error.myRecipes" class="q-pa-md">
           <q-banner rounded class="bg-red-1 text-red-8">
             <template v-slot:avatar>
               <q-icon name="error" />
             </template>
-            <strong>Error fetching your recipes:</strong> {{ error.private }}
+            <strong>Error fetching your recipes:</strong> {{ error.myRecipes }}
           </q-banner>
         </div>
-        <div v-if="privateRecipes.length === 0 && !loading.private" class="text-center q-pa-xl">
+        <div v-if="myRecipes.length === 0 && !loading.myRecipes" class="text-center q-pa-xl">
           <q-icon name="edit_note" size="3em" class="text-grey-5 q-mb-sm" />
-          <div class="text-h6 text-grey-7">No private recipes found.</div>
+          <div class="text-h6 text-grey-7">No recipes found.</div>
           <p class="q-mt-sm">
-            Click "Add Private Recipe" to create your first one.
+            Click "New Recipe" to create your first one.
           </p>
         </div>
 
         <div v-else class="row q-col-gutter-md">
-          <div v-for="recipe in privateRecipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
+          <div v-for="recipe in myRecipes" :key="recipe.id" class="col-12 col-sm-6 col-md-4">
             <q-card class="recipe-card full-height" flat bordered>
               <router-link :to="`/recipe/${recipe.id}-${recipe.slug}`" class="recipe-link">
                 <q-img v-if="recipe.image_url.Valid" :src="recipe.image_url.String" :ratio="16 / 9" />
@@ -106,7 +103,11 @@
                 </q-card-section>
 
                 <q-card-section class="q-pt-sm">
-                  <div class="text-h6 ellipsis">{{ recipe.title }}</div>
+                  <div class="row items-center justify-between no-wrap">
+                    <div class="text-h6 ellipsis">{{ recipe.title }}</div>
+                    <q-chip :color="recipe.status === 'public' ? 'positive' : 'grey-7'" 
+                      text-color="white" :label="recipe.status" size="xs" dense />
+                  </div>
                   <p class="text-grey-8 ellipsis-3-lines q-mt-sm">
                     {{ recipe.description }}
                   </p>
@@ -117,7 +118,7 @@
                 <q-btn flat dense color="grey-7" label="Delete" @click="confirmDelete(recipe)" />
                 <q-btn flat dense color="primary" label="Edit" :to="`/my-cookbook/private/edit/${recipe.id}`" />
 
-                <q-btn flat dense color="positive" label="Submit to Guild" @click="confirmSubmit(recipe)" />
+                <q-btn v-if="recipe.status === 'private'" flat dense color="positive" label="Share to Feed" @click="confirmPublish(recipe)" />
               </q-card-actions>
             </q-card>
           </div>
@@ -137,15 +138,15 @@ import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
 const recipeStore = useRecipeStore();
-const { favorites, privateRecipes } = storeToRefs(recipeStore);
+const { favorites, myRecipes } = storeToRefs(recipeStore);
 
 const $q = useQuasar();
 const router = useRouter();
 
 const tab = ref('favorites');
 
-const loading = reactive({ favorites: false, private: false });
-const error = reactive({ favorites: null, private: null });
+const loading = reactive({ favorites: false, myRecipes: false });
+const error = reactive({ favorites: null, myRecipes: null });
 
 const fetchMyCookbook = async () => {
   loading.favorites = true;
@@ -179,23 +180,23 @@ const toggleFavorite = async (recipeId) => {
   }
 };
 
-const fetchMyPrivateRecipes = async () => {
-  loading.private = true;
-  error.private = null;
+const fetchMyRecipes = async () => {
+  loading.myRecipes = true;
+  error.myRecipes = null;
   try {
-    await recipeStore.fetchMyPrivateRecipes();
+    await recipeStore.fetchMyRecipes();
   } catch (err) {
-    error.private = err.message;
+    error.myRecipes = err.message;
     console.error(err);
   } finally {
-    loading.private = false;
+    loading.myRecipes = false;
   }
 };
 
 const confirmDelete = (recipe) => {
   $q.dialog({
     title: 'Confirm Delete',
-    message: `Are you sure you want to delete your private recipe "${recipe.title}"? This cannot be undone.`,
+    message: `Are you sure you want to delete your recipe "${recipe.title}"? This cannot be undone.`,
     cancel: true,
     persistent: true,
     ok: {
@@ -203,40 +204,39 @@ const confirmDelete = (recipe) => {
       label: 'Delete',
     },
   }).onOk(async () => {
-    await deletePrivateRecipe(recipe.id);
+    await deleteMyRecipe(recipe.id);
   });
 };
 
-const confirmSubmit = (recipe) => {
+const confirmPublish = (recipe) => {
   $q.dialog({
-    title: 'Submit to Guild?',
-    message: `Are you sure you want to submit "${recipe.title}" for Guild review? It will be locked for editing while pending.`,
+    title: 'Share to Feed?',
+    message: `Are you sure you want to make "${recipe.title}" public and share it to the social feed?`,
     cancel: true,
     persistent: true,
     ok: {
       color: 'positive',
-      label: 'Submit',
+      label: 'Share Now',
     },
   }).onOk(async () => {
     try {
       await recipeStore.submitToGuild(recipe.id);
       $q.notify({
         color: 'positive',
-        message: 'Recipe submitted for review!',
+        message: 'Recipe shared to feed!',
+        icon: 'share'
       });
-      // Navigate away, as this recipe is no longer "private"
-      router.push('/my-submissions');
+      fetchMyRecipes(); // Refresh to update status
     } catch (err) {
-      console.error('Failed to submit recipe:', err);
+      console.error('Failed to share recipe:', err);
       $q.notify({
         color: 'negative',
-        message: `Submission failed: ${err.message}`,
+        message: `Sharing failed: ${err.message}`,
       });
     }
   });
 };
 
-// --- NEW: Import from URL Handler ---
 const openImportDialog = () => {
   $q.dialog({
     title: 'Import Recipe from URL',
@@ -257,18 +257,10 @@ const openImportDialog = () => {
     $q.loading.show({ message: 'Importing recipe...' });
 
     try {
-      // This action needs to be added to stores/recipes.js
       const importedRecipe = await recipeStore.importRecipeFromUrl(url);
-
-      // Pass the imported data to the edit page
-      // We'll use the store as a temporary holder
-      // This action also needs to be added to stores/recipes.js
       recipeStore.setRecipeToEdit(importedRecipe);
-
-      $q.loading.hide(); // Hide loading *before* navigating
-
+      $q.loading.hide();
       router.push('/my-cookbook/private/new');
-
     } catch (err) {
       $q.loading.hide();
       console.error('Import failed:', err);
@@ -278,17 +270,15 @@ const openImportDialog = () => {
         timeout: 4000,
       });
     }
-    // Removed the finally block to hide loading on success *before* navigation
   });
 };
-// --- End New ---
 
-const deletePrivateRecipe = async (recipeId) => {
+const deleteMyRecipe = async (recipeId) => {
   try {
-    await recipeStore.deletePrivateRecipe(recipeId);
+    await recipeStore.deleteMyRecipe(recipeId);
     $q.notify({
       color: 'positive',
-      message: 'Private recipe deleted.',
+      message: 'Recipe deleted.',
     });
   } catch (err) {
     console.error('Failed to delete recipe:', err);
@@ -298,14 +288,13 @@ const deletePrivateRecipe = async (recipeId) => {
     });
   }
 };
-
 onMounted(() => {
   if (authStore.user) {
     fetchMyCookbook();
-    fetchMyPrivateRecipes();
+    fetchMyRecipes();
   } else {
     error.favorites = 'You must be logged in to view your cookbook.';
-    error.private = 'You must be logged in to view your cookbook.';
+    error.myRecipes = 'You must be logged in to view your cookbook.';
   }
 });
 </script>

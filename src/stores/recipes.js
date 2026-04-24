@@ -12,45 +12,21 @@ export const useRecipeStore = defineStore('recipes', {
     recipeToEdit: null,
     tags: [],
     favorites: [],
-    privateRecipes: [],
-    submissions: [],
+    myRecipes: [],
     cookLogs: [],
     comments: [],
     featuredRecipes: [],
   }),
   actions: {
-    async fetchPendingRecipes() {
-      const data = await fetchWithAuth('/admin/pending-recipes');
-      this.pendingRecipes = data || [];
-      return this.pendingRecipes;
-    },
-    // --- MODIFIED: Send XP value ---
-    async approveRecipe(id, xp) {
-      await fetchWithAuth(`/admin/recipes/${id}/approve`, {
-        method: 'POST',
-        body: JSON.stringify({ xp: xp || 10 }), // Send the XP in the body
-      });
-      this.pendingRecipes = this.pendingRecipes.filter((r) => r.id !== id);
-    },
-    // ---
-    async rejectRecipe(id) {
-      await fetchWithAuth(`/admin/recipes/${id}/reject`, { method: 'POST' });
-      this.pendingRecipes = this.pendingRecipes.filter((r) => r.id !== id);
-    },
-    async fetchMySubmissions() {
+    async fetchMyRecipes() {
       const data = await fetchWithAuth('/recipes/my-submissions');
-      this.submissions = data || [];
-      return this.submissions;
+      this.myRecipes = data || [];
+      return this.myRecipes;
     },
     async fetchMyCookbook() {
       const data = await fetchWithAuth('/my-cookbook');
       this.favorites = data || [];
       return this.favorites;
-    },
-    async fetchMyPrivateRecipes() {
-      const data = await fetchWithAuth('/my-private-recipes');
-      this.privateRecipes = data || [];
-      return this.privateRecipes;
     },
     async toggleFavorite(recipeId) {
       const authStore = useAuthStore();
@@ -67,9 +43,9 @@ export const useRecipeStore = defineStore('recipes', {
         // Optionally re-fetch or add to favorites list
       }
     },
-    async deletePrivateRecipe(recipeId) {
+    async deleteMyRecipe(recipeId) {
       await fetchWithAuth(`/recipes/private/${recipeId}`, { method: 'DELETE' });
-      this.privateRecipes = this.privateRecipes.filter((r) => r.id !== recipeId);
+      this.myRecipes = this.myRecipes.filter((r) => r.id !== recipeId);
     },
 
     async fetchRecipes(params) {

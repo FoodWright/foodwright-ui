@@ -71,19 +71,17 @@
 
 <script setup>
 import { ref, reactive, getCurrentInstance } from 'vue'; // <-- ADD getCurrentInstance
-// import { useAuthStore } from 'stores/auth';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
-import { getIdToken } from 'firebase/auth'; // <-- 1. IMPORT getIdToken
+import { getIdToken, GoogleAuthProvider } from 'firebase/auth'; // <-- 1. IMPORT getIdToken
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
 const tab = ref('login');
-// const authStore = useAuthStore(); // <-- 2. REMOVE unused variable
 const $q = useQuasar();
 const router = useRouter();
-// --- START: MODIFICATION ---
 const { proxy } = getCurrentInstance(); // <-- GET COMPONENT PROXY
 const { $firebaseAuth, $auth, $googleProvider } = proxy; // <-- GET GLOBAL PROPERTIES
-// --- END: MODIFICATION ---
 
 const loading = ref(false);
 
@@ -101,14 +99,11 @@ const signupForm = reactive({
 const handleLogin = async () => {
   loading.value = true;
   try {
-    // --- MODIFIED: Call Firebase auth directly ---
     await $auth.signInWithEmailAndPassword(
       $firebaseAuth,
       loginForm.email,
       loginForm.password
     );
-    // onAuthStateChanged will handle the rest
-    // ---
     $q.notify({
       color: 'positive',
       icon: 'check_circle',
@@ -125,23 +120,17 @@ const handleLogin = async () => {
 const handleSignup = async () => {
   loading.value = true;
   try {
-    // --- MODIFIED: Call Firebase auth directly ---
     const userCredential = await $auth.createUserWithEmailAndPassword(
       $firebaseAuth,
       signupForm.email,
       signupForm.password
     );
-    // 2. Set their display name
     if (userCredential.user) {
       await $auth.updateProfile(userCredential.user, {
         displayName: signupForm.username,
       });
-      // 3. Force-refresh token to get displayName in claims
-      // This will be picked up by onAuthStateChanged
       await getIdToken(userCredential.user, true);
     }
-    // onAuthStateChanged will handle the rest
-    // ---
     $q.notify({
       color: 'positive',
       icon: 'check_circle',
@@ -158,10 +147,23 @@ const handleSignup = async () => {
 const handleGoogleLogin = async () => {
   loading.value = true;
   try {
-    // --- MODIFIED: Call Firebase auth directly ---
-    await $auth.signInWithPopup($firebaseAuth, $googleProvider);
-    // onAuthStateChanged will handle the rest
-    // ---
+    if (Capacitor.isNativePlatform()) {
+      // Use native Capacitor plugin
+      const result = await FirebaseAuthentication.signInWithGoogle();
+      
+      // If the plugin returns a credential, use it to sign into the Firebase JS SDK
+      if (result.credential && result.credential.idToken) {
+        const credential = GoogleAuthProvider.credential(
+          result.credential.idToken,
+          result.credential.accessToken
+        );
+        await $auth.signInWithCredential($firebaseAuth, credential);
+      }
+    } else {
+      // Use web popup
+      await $auth.signInWithPopup($firebaseAuth, $googleProvider);
+    }
+
     $q.notify({
       color: 'positive',
       icon: 'check_circle',
@@ -169,6 +171,7 @@ const handleGoogleLogin = async () => {
     });
     router.push('/');
   } catch (err) {
+    console.error('Google Sign-In Error:', err);
     handleAuthError(err);
   } finally {
     loading.value = false;

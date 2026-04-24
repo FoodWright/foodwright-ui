@@ -6,9 +6,13 @@
           <q-btn flat dense no-caps to="/" class="text-h6">Food Wright</q-btn>
         </q-toolbar-title>
 
-        <div v-if="authStore.user" class="q-gutter-sm gt-xs">
+        <div class="q-gutter-sm gt-xs">
+          <q-btn flat dense to="/recipes" label="Recipes" icon="restaurant_menu" />
+        </div>
+
+        <div v-if="authStore.user" class="q-gutter-sm gt-xs q-ml-sm">
           <q-btn flat dense to="/my-cookbook" label="My Cookbook" icon="book" />
-          <q-btn flat dense to="/my-cookbook/private/new" label="Add Recipe" icon="add_circle_outline" />
+          <q-btn flat dense to="/my-cookbook/private/new" label="New Recipe" icon="add_circle_outline" />
         </div>
 
         <q-space />
@@ -42,10 +46,7 @@
                 </q-item>
                 <q-item clickable to="/my-cookbook/private/new" class="lt-sm">
                   <q-item-section avatar><q-icon name="add_circle_outline" /></q-item-section>
-                  <q-item-section>Add Recipe</q-item-section>
-                </q-item>
-                <q-item clickable to="/my-submissions">
-                  <q-item-section>My Submissions</q-item-section>
+                  <q-item-section>New Recipe</q-item-section>
                 </q-item>
 
                 <q-item clickable to="/tools/converter">
