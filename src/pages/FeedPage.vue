@@ -11,15 +11,13 @@
         indicator-color="primary"
         align="left"
       >
-        <q-tab name="following" label="Following" />
+        <q-tab v-if="authStore.user" name="following" label="Following" />
         <q-tab name="explore" label="Explore" />
       </q-tabs>
 
       <q-tab-panels v-model="tab" animated>
         <!-- Following Tab -->
-        <q-tab-panel name="following" class="q-pa-none">
-          <!-- Create post card (only on Following tab) -->
-          <CreatePostCard @posted="refreshFollowingFeed" class="q-mb-md" />
+        <q-tab-panel v-if="authStore.user" name="following" class="q-pa-none">
 
           <!-- Empty state -->
           <q-card v-if="!loading && followingFeed.length === 0" flat bordered class="q-pa-lg text-center">
@@ -37,7 +35,7 @@
           </q-card>
 
           <!-- Feed posts -->
-          <div v-else>
+          <div v-else class="q-pt-md">
             <PostCard
               v-for="post in followingFeed"
               :key="post.id"
@@ -77,7 +75,7 @@
           </q-card>
 
           <!-- Feed posts -->
-          <div v-else>
+          <div v-else class="q-pt-md">
             <PostCard
               v-for="post in exploreFeed"
               :key="post.id"
@@ -106,29 +104,52 @@
         </q-tab-panel>
       </q-tab-panels>
     </div>
+
+    <!-- Floating Action Button for Creating Posts -->
+    <q-page-sticky v-if="authStore.user" position="bottom-right" :offset="[24, 24]">
+      <q-btn fab icon="add" color="primary" @click="createPostDialog = true" size="1.2rem" shadow-3 />
+    </q-page-sticky>
+
+    <!-- Create Post Dialog -->
+    <q-dialog v-model="createPostDialog" position="bottom">
+      <div style="width: 100%; max-width: 600px; padding-bottom: env(safe-area-inset-bottom)">
+        <CreatePostCard @posted="handlePostCreated" class="q-mb-none" style="border-radius: 24px 24px 0 0;" />
+      </div>
+    </q-dialog>
   </q-page>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useSocialStore } from 'stores/social'
+import { useAuthStore } from 'stores/auth'
 import { useQuasar } from 'quasar'
 import PostCard from 'components/PostCard.vue'
 import CreatePostCard from 'components/CreatePostCard.vue'
 
 const socialStore = useSocialStore()
+const authStore = useAuthStore()
 const $q = useQuasar()
 
-const tab = ref('following')
+const tab = ref('explore')
 const loading = ref(false)
 const loadingMore = ref(false)
+const createPostDialog = ref(false)
 
 const followingFeed = computed(() => socialStore.followingFeed)
 const exploreFeed = computed(() => socialStore.exploreFeed)
 const hasMoreFollowing = computed(() => socialStore.hasMoreFollowing)
 const hasMoreExplore = computed(() => socialStore.hasMoreExplore)
 
+const handlePostCreated = () => {
+  createPostDialog.value = false
+  refreshFollowingFeed()
+  // Switch to following tab to see the new post
+  tab.value = 'following'
+}
+
 const loadFollowingFeed = async () => {
+  if (!authStore.user) return
   loading.value = true
   try {
     await socialStore.fetchFeed(1)
@@ -187,6 +208,10 @@ const refreshFollowingFeed = async () => {
 }
 
 const handleLike = async (postId) => {
+  if (!authStore.user) {
+    $q.notify({ color: 'warning', message: 'Please log in to like posts' })
+    return
+  }
   try {
     await socialStore.likePost(postId)
   } catch (error) {
@@ -200,6 +225,10 @@ const handleLike = async (postId) => {
 }
 
 const handleRepost = async (postId) => {
+  if (!authStore.user) {
+    $q.notify({ color: 'warning', message: 'Please log in to repost' })
+    return
+  }
   try {
     await socialStore.repostToFeed(postId)
     $q.notify({
@@ -244,8 +273,15 @@ const handleDelete = async (postId) => {
   })
 }
 
-onMounted(() => {
-  loadFollowingFeed()
-  loadExploreFeed()
-})
+watch(() => authStore.authReady, (isReady) => {
+  if (isReady) {
+    if (authStore.user) {
+      tab.value = 'following'
+      loadFollowingFeed()
+    } else {
+      tab.value = 'explore'
+    }
+    loadExploreFeed()
+  }
+}, { immediate: true })
 </script>

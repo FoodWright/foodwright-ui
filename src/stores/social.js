@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { fetchWithAuth, fetchPublic } from '@/services/api'
+import { fetchWithAuth, fetchPublic } from 'src/services/api'
 
 export const useSocialStore = defineStore('social', {
   state: () => ({
@@ -16,8 +16,7 @@ export const useSocialStore = defineStore('social', {
   actions: {
     async fetchFeed(page = 1) {
       try {
-        const response = await fetchWithAuth(`/api/feed?page=${page}`)
-        const data = await response.json()
+        const data = await fetchWithAuth(`/feed?page=${page}`)
 
         if (page === 1) {
           this.followingFeed = data.posts || []
@@ -36,8 +35,7 @@ export const useSocialStore = defineStore('social', {
 
     async fetchExploreFeed(page = 1) {
       try {
-        const response = await fetchPublic(`/api/explore?page=${page}`)
-        const data = await response.json()
+        const data = await fetchPublic(`/explore?page=${page}`)
 
         if (page === 1) {
           this.exploreFeed = data.posts || []
@@ -54,14 +52,13 @@ export const useSocialStore = defineStore('social', {
       }
     },
 
-    async createQuickPost(content) {
+    async createQuickPost(payload) {
       try {
-        const response = await fetchWithAuth('/api/posts/quick', {
+        const data = await fetchWithAuth('/posts/quick', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content })
+          body: JSON.stringify(payload)
         })
-        const data = await response.json()
 
         // Refresh feed to show new post
         await this.fetchFeed(1)
@@ -74,10 +71,9 @@ export const useSocialStore = defineStore('social', {
 
     async shareRecipe(recipeId) {
       try {
-        const response = await fetchWithAuth(`/api/recipes/${recipeId}/share`, {
+        const data = await fetchWithAuth(`/recipes/${recipeId}/share`, {
           method: 'POST'
         })
-        const data = await response.json()
 
         // Refresh feed to show new post
         await this.fetchFeed(1)
@@ -90,10 +86,9 @@ export const useSocialStore = defineStore('social', {
 
     async likePost(postId) {
       try {
-        const response = await fetchWithAuth(`/api/posts/${postId}/like`, {
+        const data = await fetchWithAuth(`/posts/${postId}/like`, {
           method: 'POST'
         })
-        const data = await response.json()
 
         // Update like status in feeds
         this.updatePostLike(postId, data.liked)
@@ -106,10 +101,9 @@ export const useSocialStore = defineStore('social', {
 
     async repostToFeed(postId) {
       try {
-        const response = await fetchWithAuth(`/api/posts/${postId}/repost`, {
+        const data = await fetchWithAuth(`/posts/${postId}/repost`, {
           method: 'POST'
         })
-        const data = await response.json()
 
         // Refresh feed to show repost
         await this.fetchFeed(1)
@@ -122,7 +116,7 @@ export const useSocialStore = defineStore('social', {
 
     async deletePost(postId) {
       try {
-        await fetchWithAuth(`/api/posts/${postId}`, {
+        await fetchWithAuth(`/posts/${postId}`, {
           method: 'DELETE'
         })
 
@@ -137,7 +131,7 @@ export const useSocialStore = defineStore('social', {
 
     async followUser(userId) {
       try {
-        await fetchWithAuth(`/api/users/${userId}/follow`, {
+        await fetchWithAuth(`/users/${userId}/follow`, {
           method: 'POST'
         })
         this.followStatus[userId] = true
@@ -149,7 +143,7 @@ export const useSocialStore = defineStore('social', {
 
     async unfollowUser(userId) {
       try {
-        await fetchWithAuth(`/api/users/${userId}/follow`, {
+        await fetchWithAuth(`/users/${userId}/follow`, {
           method: 'DELETE'
         })
         this.followStatus[userId] = false
@@ -161,8 +155,7 @@ export const useSocialStore = defineStore('social', {
 
     async fetchUserPosts(userId, page = 1) {
       try {
-        const response = await fetchPublic(`/api/users/${userId}/posts?page=${page}`)
-        const data = await response.json()
+        const data = await fetchPublic(`/users/${userId}/posts?page=${page}`)
 
         if (!this.userPosts[userId]) {
           this.userPosts[userId] = []
@@ -183,8 +176,7 @@ export const useSocialStore = defineStore('social', {
 
     async checkFollowStatus(userId) {
       try {
-        const response = await fetchWithAuth(`/api/users/${userId}/follow-status`)
-        const data = await response.json()
+        const data = await fetchWithAuth(`/users/${userId}/follow-status`)
         this.followStatus[userId] = data.is_following
         return data.is_following
       } catch (error) {

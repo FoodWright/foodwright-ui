@@ -54,42 +54,6 @@
       </div>
       <!-- === END: Featured Recipes Section === -->
 
-      <!-- === Social Feed Card === -->
-      <q-card v-if="authStore.user && guildProfile" class="q-mb-md" flat bordered>
-        <q-card-section>
-          <div class="row items-center q-gutter-md">
-            <q-avatar size="60px" :color="authStore.user.photoURL ? 'white' : 'secondary'"
-              :text-color="authStore.user.photoURL ? 'primary' : 'white'">
-              <img v-if="authStore.user.photoURL" :src="authStore.user.photoURL" alt="User avatar"
-                referrerpolicy="no-referrer" />
-              <template v-else>
-                {{ userInitials }}
-              </template>
-            </q-avatar>
-
-            <div class="col">
-              <div class="text-h6">
-                Welcome back, {{ authStore.user.displayName }}!
-              </div>
-              <div class="text-subtitle1 text-grey-8">
-                <span class="text-weight-bold text-primary">{{ guildProfile.rank }}</span>
-                • {{ guildProfile.xp }} XP
-                • {{ guildProfile.follower_count }} followers
-              </div>
-            </div>
-
-            <q-btn
-              color="primary"
-              label="View Feed"
-              icon="dynamic_feed"
-              to="/feed"
-              unelevated
-            />
-          </div>
-        </q-card-section>
-      </q-card>
-      <!-- === End Social Feed Card === -->
-
       <!-- Search and Filter Controls -->
       <div class="row q-col-gutter-md q-mb-md">
         <div class="col-12 col-sm-6">
@@ -132,7 +96,7 @@
           Try adjusting your search or filters.
         </p>
         <p class="q-mt-sm" v-else>
-          There are no approved Guild recipes... yet.
+          There are no public recipes... yet.
         </p>
       </div>
 
@@ -201,8 +165,8 @@
             style="max-width: 250px; height: 250px" />
           <!-- Case 2: Icon -->
           <q-icon v-else :name="zoomedBadge.icon_url.Valid
-              ? zoomedBadge.icon_url.String
-              : 'military_tech'
+            ? zoomedBadge.icon_url.String
+            : 'military_tech'
             " color="secondary" size="250px" />
         </q-card-section>
 
@@ -237,7 +201,6 @@ const userStore = useUserStore();
 const { recipes, tags: availableTags, featuredRecipes } = storeToRefs(
   recipeStore
 );
-const { profile: guildProfile } = storeToRefs(userStore);
 
 const $q = useQuasar();
 
@@ -254,23 +217,6 @@ const favoritesLoaded = ref(false);
 // --- NEW: Badge Zoom State ---
 const showZoomDialog = ref(false);
 const zoomedBadge = ref(null);
-
-const openZoomDialog = (badge) => {
-  zoomedBadge.value = badge;
-  showZoomDialog.value = true;
-};
-// ---
-
-// --- NEW: Compute user initials ---
-const userInitials = computed(() => {
-  const name = authStore.user?.displayName || '';
-  const parts = name.split(' ');
-  if (parts.length > 1) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return name.substring(0, 2).toUpperCase();
-});
-// ---
 
 // --- NEW: Computed prop for featured IDs ---
 const featuredRecipeIds = computed(() =>
@@ -326,14 +272,14 @@ const fetchProfileAndFavorites = async () => {
   }
 };
 
-const formatJoinDate = (isoString) => {
-  if (!isoString) return '';
-  return new Date(isoString).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-};
+// const formatJoinDate = (isoString) => {
+//   if (!isoString) return '';
+//   return new Date(isoString).toLocaleDateString(undefined, {
+//     year: 'numeric',
+//     month: 'long',
+//     day: 'numeric',
+//   });
+// };
 
 const isFavorited = (recipeId) => {
   return (

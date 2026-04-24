@@ -8,6 +8,7 @@ import {
   getIdToken,
   // --- NEW IMPORTS ---
   signInWithPopup,
+  signInWithCredential,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
@@ -15,6 +16,7 @@ import {
   // ---
 } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
+import { Capacitor } from '@capacitor/core';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { useAuthStore } from 'stores/auth';
 
@@ -36,15 +38,18 @@ export const firebaseStorage = getStorage(firebaseApp);
 export const googleProvider = new GoogleAuthProvider();
 // --- END MODIFICATION ---
 
-if (location.hostname === 'localhost') {
-  self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-} else {
-  self.FIREBASE_APPCHECK_DEBUG_TOKEN = false;
-}
+if (!Capacitor.isNativePlatform()) {
+  if (window.location.hostname === 'localhost') {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  } else {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = false;
+  }
 
-initializeAppCheck(firebaseApp, {
-  provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITEKEY),
-});
+  initializeAppCheck(firebaseApp, {
+    provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITEKEY),
+    isTokenAutoRefreshEnabled: true
+  });
+}
 
 export default boot(({ app, store }) => {
   // <-- Add router
@@ -83,6 +88,7 @@ export default boot(({ app, store }) => {
   // --- NEW: Add auth functions to global properties ---
   app.config.globalProperties.$auth = {
     signInWithPopup,
+    signInWithCredential,
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     signOut,

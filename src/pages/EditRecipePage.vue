@@ -2,12 +2,11 @@
   <q-page class="q-pa-md" style="max-width: 700px; margin: 0 auto">
     <div class="row items-center justify-between q-mb-md">
       <h4 class="text-h4 q-mt-none q-mb-none">
-        {{ isEditMode ? 'Edit Private Recipe' : 'Create Private Recipe' }}
+        {{ isEditMode ? 'Edit Recipe' : 'New Recipe' }}
       </h4>
     </div>
     <p class="text-body1 text-grey-8 q-mb-lg">
-      This recipe will be saved to your private cookbook and will not be
-      submitted to the Guild unless you choose to.
+      Create your masterpiece. You can save it as a private draft or share it with the world.
     </p>
 
     <div v-if="loading" class="text-center q-pa-xl">
@@ -23,7 +22,7 @@
       </q-banner>
     </div>
 
-    <q-form v-if="!loading && !error" @submit="handleSubmit" @keydown.enter="preventSubmitOnEnter" class="q-gutter-md">
+    <q-form v-if="!loading && !error" @submit="saveAndShare" @keydown.enter="preventSubmitOnEnter" class="q-gutter-md">
       <q-card flat bordered>
         <q-card-section>
           <div class="text-h6 q-mb-sm">Basic Info</div>
@@ -77,11 +76,8 @@
             </q-btn>
           </q-img>
 
-          <q-select v-model="form.tags" label="Tags" hint="Select existing tags." outlined multiple use-chips
+          <q-select v-model="form.tags" label="Tags" hint="Add tags to help people find your recipe." outlined multiple use-chips
             :options="availableTags" class="q-mt-md" />
-
-          <q-input v-model.number="form.xp" type="number" label="XP" outlined class="q-mt-md" readonly disable
-            hint="XP (10-100) will be assigned if you submit to the Guild." />
         </q-card-section>
       </q-card>
 
@@ -165,13 +161,12 @@
       </q-card>
 
       <div class="row q-gutter-md q-mt-md">
-        <q-btn :label="isEditMode ? 'Save Changes' : 'Save to Cookbook'" type="submit" color="primary" size="lg"
+        <q-btn :label="isEditMode ? 'Save Draft' : 'Save as Draft'" @click="saveDraft" color="grey-7" outline size="lg"
           class="col" :loading="isSubmitting" />
 
-        <q-btn v-if="isEditMode && form.status === 'private'" label="Submit to Guild" @click="handleSubmitToGuild"
-          color="positive" outline size="lg" class="col" :loading="isSubmittingGuild" icon="fas fa-shield-alt">
-          <q-tooltip>Submit this recipe for Guild review. It will become public if
-            approved.</q-tooltip>
+        <q-btn label="Save & Share to Feed" @click="saveAndShare"
+          color="primary" size="lg" class="col" :loading="isSubmittingShared" icon="share">
+          <q-tooltip>This will make your recipe public and post it to the social feed.</q-tooltip>
         </q-btn>
       </div>
     </q-form>
@@ -207,7 +202,7 @@ const { proxy } = getCurrentInstance();
 const $firebaseStorage = proxy.$firebaseStorage;
 
 const isSubmitting = ref(false);
-const isSubmittingGuild = ref(false);
+const isSubmittingShared = ref(false);
 const loading = ref(false);
 const error = ref(null);
 const recipeId = ref(route.params.id || null);
@@ -377,7 +372,15 @@ const fetchRecipeForEdit = async () => {
   }
 };
 
-const handleSubmit = async () => {
+const saveDraft = async () => {
+  await handleMainSubmit(false);
+};
+
+const saveAndShare = async () => {
+  await handleMainSubmit(true);
+};
+
+const handleMainSubmit = async (shouldShare) => {
   if (isUploading.value) {
     $q.notify({
       color: 'warning',
@@ -386,7 +389,12 @@ const handleSubmit = async () => {
     return;
   }
 
-  isSubmitting.value = true;
+  if (shouldShare) {
+    isSubmittingShared.value = true;
+  } else {
+    isSubmitting.value = true;
+  }
+
   try {
     const cleanIngredients = form.ingredients.filter((i) => {
       if (i.type === 'header') {
@@ -417,32 +425,24 @@ const handleSubmit = async () => {
       servings: form.servings,
     };
 
-    const response = await recipeStore.savePrivateRecipe(payload); // Use store
+    const response = await recipeStore.savePrivateRecipe(payload);
 
-    $q.notify({
-      color: 'positive',
-      message: isEditMode.value
-        ? 'Recipe updated!'
-        : 'Recipe saved to your private cookbook!',
-    });
-
-    if (!isEditMode.value && response) {
-      if (
-        response.new_badges_awarded &&
-        response.new_badges_awarded.length > 0
-      ) {
-        response.new_badges_awarded.forEach((badge) => {
-          $q.notify({
-            color: 'amber-8',
-            icon: 'workspace_premium',
-            message: `Badge Unlocked: ${badge}!`,
-            timeout: 5000,
-          });
-        });
-      }
+    if (shouldShare) {
+      const finalId = recipeId.value || response.id;
+      await recipeStore.submitToGuild(finalId);
+      $q.notify({
+        color: 'positive',
+        message: 'Recipe saved and shared to your feed!',
+        icon: 'share',
+      });
+    } else {
+      $q.notify({
+        color: 'positive',
+        message: isEditMode.value ? 'Recipe updated!' : 'Recipe saved to drafts!',
+      });
     }
 
-    router.push('/my-cookbook?tab=private');
+    router.push('/my-cookbook?tab=my-recipes');
   } catch (err) {
     console.error('Failed to save recipe:', err);
     $q.notify({
@@ -451,49 +451,8 @@ const handleSubmit = async () => {
     });
   } finally {
     isSubmitting.value = false;
+    isSubmittingShared.value = false;
   }
-};
-
-const handleSubmitToGuild = async () => {
-  $q.dialog({
-    title: 'Submit to Guild?',
-    message:
-      'This will save any pending changes and submit your recipe for Guild review. Are you sure?',
-    cancel: true,
-    persistent: true,
-    ok: {
-      color: 'positive',
-      label: 'Submit',
-    },
-  }).onOk(async () => {
-    isSubmittingGuild.value = true;
-    try {
-      // First, save any pending changes
-      await handleSubmit();
-
-      if (isSubmitting.value) {
-        return;
-      }
-
-      // Then, submit it
-      await recipeStore.submitToGuild(recipeId.value); // Use store
-
-      $q.notify({
-        color: 'positive',
-        message: 'Recipe submitted to the Guild for review!',
-      });
-
-      router.push('/my-submissions');
-    } catch (err) {
-      console.error('Failed to submit to guild:', err);
-      $q.notify({
-        color: 'negative',
-        message: `Failed to submit: ${err.message}`,
-      });
-    } finally {
-      isSubmittingGuild.value = false;
-    }
-  });
 };
 
 onMounted(() => {
