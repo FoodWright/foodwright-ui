@@ -7,7 +7,7 @@
    * It tells Wrangler to run the code in 'src/index.js'
    * for every request, instead of just serving static files.
    */
-  //   "main": "src/index.js",
+  "main": "src/index.js",
 
   /**
    * This section tells the 'src/index.js' script
