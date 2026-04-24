@@ -313,7 +313,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, reactive, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from 'stores/auth';
 import { useRecipeStore } from 'stores/recipes';
@@ -345,6 +345,67 @@ const commentsLoading = ref(false);
 const commentsError = ref(null);
 const newComment = ref('');
 const isSubmittingComment = ref(false);
+
+// --- NEW: SEO / JSON-LD Logic ---
+const injectJsonLd = (recipeData) => {
+  // Remove existing JSON-LD if any
+  const existingScript = document.getElementById('recipe-json-ld');
+  if (existingScript) existingScript.remove();
+
+  if (!recipeData) return;
+
+  const script = document.createElement('script');
+  script.id = 'recipe-json-ld';
+  script.type = 'application/ld+json';
+
+  const jsonLd = {
+    '@context': 'https://schema.org/',
+    '@type': 'Recipe',
+    name: recipeData.title,
+    image: recipeData.image_url.Valid ? [recipeData.image_url.String] : [],
+    author: {
+      '@type': 'Person',
+      name: recipeData.submitted_by_username.Valid ? recipeData.submitted_by_username.String : 'Food Wright Chef',
+    },
+    datePublished: recipeData.created_at,
+    description: recipeData.description,
+    prepTime: recipeData.prep_time_minutes.Valid ? `PT${recipeData.prep_time_minutes.Int64}M` : undefined,
+    cookTime: recipeData.cook_time_minutes.Valid ? `PT${recipeData.cook_time_minutes.Int64}M` : undefined,
+    totalTime: (recipeData.prep_time_minutes.Valid && recipeData.cook_time_minutes.Valid) 
+      ? `PT${recipeData.prep_time_minutes.Int64 + recipeData.cook_time_minutes.Int64}M` 
+      : undefined,
+    recipeYield: recipeData.servings.Valid ? recipeData.servings.String : undefined,
+    recipeCategory: 'Main Course',
+    recipeCuisine: 'International',
+    keywords: recipeData.tags ? recipeData.tags.join(', ') : '',
+    recipeIngredient: recipeData.ingredients 
+      ? recipeData.ingredients.filter(i => i.type !== 'header').map(i => `${i.quantity_str} ${i.unit} ${i.name}`)
+      : [],
+    recipeInstructions: recipeData.instructions
+      ? recipeData.instructions.filter(i => i.type !== 'header').map(i => ({
+          '@type': 'HowToStep',
+          text: i.step,
+        }))
+      : [],
+    aggregateRating: recipeData.cook_count > 0 ? {
+      '@type': 'AggregateRating',
+      ratingValue: recipeData.avg_rating,
+      ratingCount: recipeData.cook_count,
+    } : undefined,
+  };
+
+  script.text = JSON.stringify(jsonLd);
+  document.head.appendChild(script);
+  
+  // Also update standard meta tags for crawlers
+  document.title = `${recipeData.title} - Food Wright`;
+};
+
+onUnmounted(() => {
+  const existingScript = document.getElementById('recipe-json-ld');
+  if (existingScript) existingScript.remove();
+});
+// ---
 
 const showLogDialog = ref(false);
 const isSubmitting = ref(false);
@@ -417,7 +478,8 @@ const fetchRecipe = async () => {
   try {
     // We clear the old recipe from the store first
     recipeStore.recipe = null;
-    await recipeStore.fetchRecipe(recipeId);
+    const r = await recipeStore.fetchRecipe(recipeId);
+    injectJsonLd(r); // <-- NEW: Inject JSON-LD
   } catch (err) {
     error.value = err.message;
     console.error(err);
