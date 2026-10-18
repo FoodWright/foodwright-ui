@@ -326,15 +326,28 @@ const fetchRecipeForEdit = async () => {
     form.title = imported.title || '';
     form.description = imported.description || '';
     form.tags = imported.tags || [];
-    form.ingredients = imported.ingredients || [];
-    form.instructions = imported.instructions || [];
+    form.ingredients = (imported.ingredients || []).map((ing, idx) => ({
+      type: ing.type || 'ingredient',
+      quantity_str: ing.quantity_str || '',
+      unit: ing.unit || 'each',
+      name: ing.name || '',
+      order: ing.order ?? idx,
+    }));
+    form.instructions = (imported.instructions || []).map((ins, idx) => ({
+      type: ins.type || 'instruction',
+      step: ins.step || '',
+      order: ins.order ?? idx,
+    }));
     // We intentionally do not import the image
     form.image_url = '';
-    form.source = imported.source.String || '';
-    form.prep_time_minutes = imported.prep_time_minutes.Valid ? imported.prep_time_minutes.Int64 : null;
-    form.cook_time_minutes = imported.cook_time_minutes.Valid ? imported.cook_time_minutes.Int64 : null;
-    form.servings = imported.servings.String || '';
-
+    form.source = (typeof imported.source === 'string' ? imported.source : imported.source?.String) || '';
+    form.prep_time_minutes = imported.prep_time_minutes?.Valid
+      ? imported.prep_time_minutes.Int64
+      : (typeof imported.prep_time_minutes === 'number' ? imported.prep_time_minutes : null);
+    form.cook_time_minutes = imported.cook_time_minutes?.Valid
+      ? imported.cook_time_minutes.Int64
+      : (typeof imported.cook_time_minutes === 'number' ? imported.cook_time_minutes : null);
+    form.servings = (typeof imported.servings === 'string' ? imported.servings : imported.servings?.String) || '';
 
     // Clear the temporary holder
     recipeStore.setRecipeToEdit(null);
@@ -352,18 +365,25 @@ const fetchRecipeForEdit = async () => {
   error.value = null;
   try {
     const recipe = await recipeStore.fetchRecipe(recipeId.value); // Use store
-    if (recipe.submitted_by_user_id.String !== authStore.user.uid) {
+    if (recipe.submitted_by_user_id?.String !== authStore.user?.uid && recipe.submitted_by_user_id !== authStore.user?.uid) {
       throw new Error('You do not have permission to edit this recipe.');
     }
-    form.title = recipe.title;
-    form.description = recipe.description;
+    form.title = recipe.title || '';
+    form.description = recipe.description || '';
     form.tags = recipe.tags || [];
-    form.xp = recipe.xp;
-    form.status = recipe.status;
+    form.xp = recipe.xp || 0;
+    form.status = recipe.status || 'private';
     form.ingredients = recipe.ingredients || [];
     form.instructions = recipe.instructions || [];
-    form.image_url = recipe.image_url.String || '';
-    form.source = recipe.source.String || ''; // <-- ADD THIS
+    form.image_url = (typeof recipe.image_url === 'string' ? recipe.image_url : recipe.image_url?.String) || '';
+    form.source = (typeof recipe.source === 'string' ? recipe.source : recipe.source?.String) || '';
+    form.prep_time_minutes = recipe.prep_time_minutes?.Valid
+      ? recipe.prep_time_minutes.Int64
+      : (typeof recipe.prep_time_minutes === 'number' ? recipe.prep_time_minutes : null);
+    form.cook_time_minutes = recipe.cook_time_minutes?.Valid
+      ? recipe.cook_time_minutes.Int64
+      : (typeof recipe.cook_time_minutes === 'number' ? recipe.cook_time_minutes : null);
+    form.servings = (typeof recipe.servings === 'string' ? recipe.servings : recipe.servings?.String) || '';
   } catch (err) {
     console.error('Failed to fetch recipe for edit:', err);
     error.value = err.message;
