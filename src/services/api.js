@@ -55,7 +55,7 @@ export const fetchWithAuth = async (endpoint, options = {}, isRetry = false) => 
   // Don't retry if this was already a retry attempt
   if (isRetry) {
     const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.message || `Server responded with ${response.status}`);
+    throw new Error(errData.error || errData.message || `Server responded with ${response.status}`);
   }
 
   // Case 1: Unauthorized (401)
@@ -96,7 +96,7 @@ export const fetchWithAuth = async (endpoint, options = {}, isRetry = false) => 
 
   // Other errors (e.g., 404, 400) - just fail immediately
   const errData = await response.json().catch(() => ({}));
-  throw new Error(errData.message || `Server responded with ${response.status}`);
+  throw new Error(errData.error || errData.message || `Server responded with ${response.status}`);
 };
 
 /**
@@ -107,7 +107,7 @@ export const fetchPublic = async (endpoint) => {
   const response = await fetch(`${API_URL}${endpoint}`);
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.message || `Server responded with ${response.status}`);
+    throw new Error(errData.error || errData.message || `Server responded with ${response.status}`);
   }
   if (response.status === 204) return null;
   return response.json();
